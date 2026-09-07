@@ -1,0 +1,24 @@
+{
+  "$comment": [
+    "Configuración del MCP de Supabase para fletway-backend.",
+    "Arranca en modo --read-only a propósito: el uso diario es explorar/auditar el",
+    "esquema (list_tables, list_migrations, get_advisors, SELECT). Para aplicar una",
+    "migración o cualquier escritura, se corre el servidor SIN --read-only de forma",
+    "puntual y CON confirmación humana explícita (ver .claude/mcp-notes.md).",
+    "El token NO se hardcodea: exportar SUPABASE_ACCESS_TOKEN en el entorno."
+  ],
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=gfadryudaaqyxnkrpbex"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

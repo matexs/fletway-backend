@@ -1,0 +1,45 @@
+# Configuración de golangci-lint para fletway-backend.
+# Instalación: https://golangci-lint.run/usage/install/
+
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosimple
+    - bodyclose        # cerrar response bodies (llamadas a pasarela de pagos, JWKS)
+    - contextcheck     # propagar context.Context
+    - errorlint        # errores envueltos con %w
+    - gosec            # chequeos básicos de seguridad
+    - misspell
+    - revive
+    - unconvert
+    - whitespace
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true   # comentarios en español; no forzar el formato godoc inglés
+  misspell:
+    locale: US
+    ignore-words:
+      - solicitud
+      - viaje
+      - oferta
+      - transportista
+      - resena
+
+issues:
+  exclude-rules:
+    # El skeleton tiene funciones sin cuerpo real todavía.
+    - path: internal/platform/(database|auth)/
+      linters: [unused, revive]
+  max-issues-per-linter: 0
+  max-same-issues: 0

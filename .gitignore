@@ -1,0 +1,43 @@
+# ---- Go ----
+/bin/
+/dist/
+/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+/vendor/
+
+# ---- Entorno / secretos ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+
+# ---- Supabase CLI (si se usa local) ----
+/supabase/.branches/
+/supabase/.temp/
+/supabase/logs/
+
+# ---- Editores / SO ----
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- Claude Code ----
+.claude/settings.local.json
+.claude/*.local.md
+
+# ---- QA ----
+/qa/postman/*.local.json
+/qa/**/output/

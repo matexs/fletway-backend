@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Hook de pre-commit para fletway-backend.
+# Instalar con: make hooks   (copia este archivo a .git/hooks/pre-commit)
+set -euo pipefail
+
+echo "› gofmt"
+unformatted="$(gofmt -l .)"
+if [ -n "$unformatted" ]; then
+  echo "  archivos sin formatear:"
+  echo "$unformatted" | sed 's/^/    /'
+  echo "  corré: make fmt"
+  exit 1
+fi
+
+echo "› go vet"
+go vet ./...
+
+if command -v golangci-lint >/dev/null 2>&1; then
+  echo "› golangci-lint"
+  golangci-lint run
+else
+  echo "  (golangci-lint no instalado, salteando)"
+fi
+
+echo "› go build"
+go build ./...
+
+echo "› go test"
+go test -race -count=1 ./...
+
+echo "✓ pre-commit OK"
