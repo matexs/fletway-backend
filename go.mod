@@ -1,6 +1,6 @@
 module github.com/fletway/fletway-backend
 
-go 1.27
+go 1.24
 
 // Dependencias previstas (agregar con `go mod tidy` al implementar):
 //   github.com/jackc/pgx/v5            -- driver + pool Postgres (D-02)
