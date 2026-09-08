@@ -3,6 +3,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 )
@@ -57,8 +58,8 @@ func JSON(w http.ResponseWriter, status int, v any) {
 // Error escribe el envelope de error. Si err no es *APIError, responde 500 genérico
 // sin filtrar detalles internos.
 func Error(w http.ResponseWriter, err error) {
-	apiErr, ok := err.(*APIError)
-	if !ok {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
 		apiErr = Internal("ocurrió un error inesperado")
 		slog.Error("httpx: error no tipado en handler", "err", err)
 	}

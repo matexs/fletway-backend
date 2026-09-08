@@ -49,6 +49,7 @@ func RequestIDFromContext(ctx context.Context) string {
 func Recover(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			//nolint:contextcheck // defer de recuperación de panic; no hay contexto que propagar
 			defer func() {
 				if rec := recover(); rec != nil {
 					log.Error("panic recuperado en handler",

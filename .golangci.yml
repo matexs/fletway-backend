@@ -1,45 +1,40 @@
-# Configuración de golangci-lint para fletway-backend.
-# Instalación: https://golangci-lint.run/usage/install/
+# Configuración de golangci-lint (esquema v2 — requerido para Go 1.27).
+# Docs: https://golangci-lint.run/  ·  migración v1→v2: `golangci-lint migrate`
+version: "2"
 
 run:
   timeout: 3m
-  tests: true
 
 linters:
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - gosimple
-    - bodyclose        # cerrar response bodies (llamadas a pasarela de pagos, JWKS)
+    - bodyclose        # cerrar response bodies (pasarela de pagos, JWKS)
     - contextcheck     # propagar context.Context
     - errorlint        # errores envueltos con %w
     - gosec            # chequeos básicos de seguridad
-    - misspell
     - revive
     - unconvert
     - whitespace
-
-linters-settings:
-  revive:
+  # errcheck, govet, ineffassign, staticcheck, unused ya vienen en el set por defecto de v2.
+  # misspell se omite a propósito: el código tiene comentarios en español (ver CLAUDE.md §5)
+  # y da falsos positivos constantes ("dependencias", "solicitud", ...).
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true   # comentarios en español; no forzar el godoc en inglés
+  exclusions:
     rules:
-      - name: exported
-        disabled: true   # comentarios en español; no forzar el formato godoc inglés
-  misspell:
-    locale: US
-    ignore-words:
-      - solicitud
-      - viaje
-      - oferta
-      - transportista
-      - resena
+      # El skeleton tiene funciones sin cuerpo real todavía.
+      - path: internal/platform/(database|auth)/
+        linters:
+          - unused
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 issues:
-  exclude-rules:
-    # El skeleton tiene funciones sin cuerpo real todavía.
-    - path: internal/platform/(database|auth)/
-      linters: [unused, revive]
   max-issues-per-linter: 0
   max-same-issues: 0

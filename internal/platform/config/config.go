@@ -68,8 +68,8 @@ func Load() (Config, error) {
 		},
 		Database: DatabaseConfig{
 			URL:             os.Getenv("DATABASE_URL"),
-			MaxConns:        int32(getint("DATABASE_MAX_CONNS", 10)),
-			MinConns:        int32(getint("DATABASE_MIN_CONNS", 2)),
+			MaxConns:        getint32("DATABASE_MAX_CONNS", 10),
+			MinConns:        getint32("DATABASE_MIN_CONNS", 2),
 			MaxConnLifetime: getdur("DATABASE_MAX_CONN_LIFETIME", time.Hour),
 		},
 		Supabase: SupabaseConfig{
@@ -128,6 +128,16 @@ func getint(key string, def int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
+		}
+	}
+	return def
+}
+
+// getint32 parsea acotando a 32 bits (lo que espera pgxpool para el tamaño del pool).
+func getint32(key string, def int32) int32 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+			return int32(n)
 		}
 	}
 	return def
