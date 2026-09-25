@@ -4,9 +4,14 @@ Migraciones de la base de datos de Supabase (`dbFletway`).
 
 ## Estado
 
-El esquema (34 tablas, RLS activo) **ya está desplegado**. Este directorio arranca
-**vacío de `.sql`** a propósito: acá se versionan únicamente los cambios **futuros**,
-generados con la skill `supabase-migration`.
+El esquema **ya está desplegado** (39 tablas, RLS activo en todas). El esquema inicial
+(13 migraciones `01_identidad` … `09d_indices_fk_faltantes`, 2026-08-22/23) **no** está en
+este directorio: vive sólo en el historial de Supabase. Acá se versionan los cambios
+**posteriores**, generados con la skill `supabase-migration`.
+
+| Migración | Estado | Tema |
+|---|---|---|
+| `0001`–`0007` | ✅ Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
 
 > El baseline del esquema actual está documentado en
 > `docs/DOCUMENTACION_BASE_DE_DATOS.md`. Si se quiere un dump SQL del baseline, se
