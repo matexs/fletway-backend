@@ -7,7 +7,7 @@
 > Regla: ninguna decisión no reversible se trata como cerrada mientras diga
 > "PROPUESTA A CONFIRMAR".
 
-**Última actualización:** 2026-09-07
+**Última actualización:** 2026-09-24
 
 ---
 
@@ -27,6 +27,9 @@
 | D-10 | Realtime (chat RF-10/20, GPS RI-04) lo sirve Supabase directo a la app | CONFIRMADA (modelo híbrido elegido por el humano) |
 | D-11 | Formato de contrato de API = REST/JSON con envelope de error único | PROPUESTA A CONFIRMAR |
 | D-12 | Testing = `testing` stdlib + `testcontainers`/Supabase local para integración | PROPUESTA A CONFIRMAR |
+| D-13 | Modelo de precio (RN-01): sin cotización estimada; precio real por oferta a partir del costo operativo | CONFIRMADA (2026-09-24) |
+| D-14 | Cálculo de viajes (RN-02) con `bavix/boxpacker3/v2`, greedy de una pasada, como estimativo | CONFIRMADA (2026-09-24) |
+| D-15 | Ubicación de `margen_pct` (config de plataforma vs. por Transportista) | ABIERTA |
 
 ---
 
@@ -47,7 +50,7 @@ Restricción dura de la ERS (§2.4, RNF-02). Sin alternativas a evaluar.
 4. Se corren las queries del handler.
 5. Commit/rollback.
 
-Así, **las 34 políticas RLS ya desplegadas siguen siendo la capa de seguridad efectiva**
+Así, **las políticas RLS ya desplegadas (127 en 39 tablas al 2026-09-24) siguen siendo la capa de seguridad efectiva**
 (igual que si las queries pasaran por PostgREST). El backend Go agrega:
 
 - Lógica de negocio y orquestación (cotización RN-01/02, score RN-05, snapshots RNF-03).
@@ -184,3 +187,46 @@ la skill `sync-api-models` del repo `fletway-mobile`.
 `testing` de stdlib + `testify` para asserts. Integración contra Postgres real
 (Supabase local vía CLI, o `testcontainers-go`). Los tests de RLS son parte de la
 suite: cada feature testea que un usuario no puede ver/tocar lo ajeno.
+
+---
+
+## D-13 — Modelo de precio (RN-01) · CONFIRMADA (2026-09-24)
+
+- **No hay cotización estimada** al publicar la `solicitud`. El único precio que ve el
+  Cliente es `oferta.precio_calculado`, calculado al ofertar (RF-17) con el `vehiculo` y
+  la cantidad de ayudantes reales del Transportista.
+- Precio = costo operativo (laboral + vehículo + adicionales) × (1 + margen) /
+  (1 − comisión) × (1 + IVA).
+- La distancia del Transportista al origen **no** se calcula ni se cobra.
+- Costos del vehículo en la tabla privada `vehiculo_costo`, porque `vehiculo` es de
+  lectura pública. `vehiculo.peso_maximo_kg` = carga útil.
+- Parámetros versionados en `config_costo_laboral`, `config_operacion`,
+  `config_impuesto` y `config_comision`. `config_tarifa` queda deprecada.
+- El desglose se guarda en `oferta` y el `viaje` lo copia (el `viaje` lo crea la sesión
+  del Cliente, que no puede leer `vehiculo_costo`).
+- Columnas obsoletas: se deprecan ahora y se borran (DROP) en una migración posterior.
+
+Detalle: `docs/ALGORITMO_COTIZACION.md`. Migraciones `0001`–`0007`.
+
+---
+
+## D-14 — Cálculo de viajes (RN-02) con boxpacker3 v2 · CONFIRMADA (2026-09-24)
+
+Objetivo: un **estimativo** de la cantidad de viajes para el precio, no el mínimo
+garantizado. `github.com/bavix/boxpacker3/v2@v2.0.0` con `NewGreedy(OrderDecreasing,
+SelectFirstFit)`, `WithFinishers()` vacío y `MinSupportRatio: 0.6`. Aplica de verdad
+`rotacion_vertical` y `apilable`. Se descartó la v1.3.2 porque no soporta esas restricciones y
+estimaba cerca del doble de viajes. El cálculo corre sobre el `vehiculo` real al ofertar, no
+sobre `tipo_vehiculo` como plantea la ERS.
+
+Detalle y mediciones: `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
+
+---
+
+## D-15 — Ubicación de `margen_pct` · ABIERTA
+
+¿Parámetro de plataforma o configurable por cada Transportista? Si es por Transportista,
+el margen pasa a ser otra variable por la que compiten las ofertas. Hoy el schema sólo
+guarda el **valor aplicado** (`oferta.margen_pct`, `viaje.margen_pct_snapshot`), que sirve
+para cualquiera de las dos opciones. No se crea ninguna columna de configuración hasta
+decidirlo.

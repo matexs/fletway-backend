@@ -14,7 +14,7 @@ esta etapa.
 |-------|----------|
 | Lenguaje | Go 1.27+ |
 | HTTP | `net/http` `ServeMux` (Go 1.22+ routing) — *propuesta a confirmar* |
-| Base de datos | Postgres 17 en **Supabase** (`dbFletway`), 34 tablas, RLS activo |
+| Base de datos | Postgres 17 en **Supabase** (`dbFletway`), 39 tablas, RLS activo en todas |
 | Acceso a datos | `pgx` / `pgxpool` directo, con **RLS pass-through** (el JWT del usuario viaja a la sesión de Postgres) |
 | Auth | JWT de Supabase Auth (GoTrue) |
 | Async | pool de workers in-process (RNF-02) |
