@@ -1,17 +1,15 @@
 # MCP de Supabase — reglas de uso en este repo
 
-Proyecto: **`dbFletway`** (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 34 tablas · RLS activo en todas.
+Proyecto: **`dbFletway`** (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas · RLS activo en todas.
 
 ---
 
 ## Estado de la conexión
 
-> ⚠️ **A la fecha del scaffolding inicial el MCP de Supabase NO estaba conectado a la
-> sesión de Claude Code.** No se pudo correr `list_tables` / `get_advisors` /
-> `list_migrations` para diferenciar el catálogo real contra
-> `docs/DOCUMENTACION_BASE_DE_DATOS.md`. La verificación quedó pendiente
-> (ver `docs/ESTADO_PROYECTO.md` → "Pendientes"). Cuando el MCP esté disponible,
-> la primera tarea es esa verificación.
+> ✅ **Conectado y en uso.** Primera verificación del esquema el 2026-09-07
+> (`docs/VERIFICACION_ESQUEMA_2026-09-07.md`). El 2026-09-24 se aplicaron las migraciones
+> `0001`–`0007` con `apply_migration`, con confirmación humana explícita, y se verificó el
+> resultado (ver `docs/ESTADO_PROYECTO.md` → Bitácora).
 
 ---
 

@@ -20,7 +20,7 @@ description: >-
   RI-04/RF-15 — modelo híbrido D-10). Ahí las policies son la única defensa.
 - Después de aplicar una migración que tocó policies.
 - Cuando `get_advisors` (security) reporta algo de RLS.
-- En revisión periódica de las 34 tablas.
+- En revisión periódica de todas las tablas de `public`.
 
 ## Es SOLO lectura
 
@@ -67,9 +67,18 @@ puede hacer:
   (select auth.uid())` o equivalente por join de ownership.
 - **Administrador**: acceso total (típicamente vía chequeo de existencia en
   `administrador` o claim de rol).
-- **Exclusivo Admin** (`config_tarifa`, `config_comision`, `veto`,
-  `incidente_resolucion`, habilitación): que Cliente/Transportista **no** tengan
-  policy de escritura.
+- **Exclusivo Admin** (`config_tarifa` (deprecada), `veto`, `incidente_resolucion`,
+  habilitación): que Cliente/Transportista **no** tengan policy de escritura.
+- **Config legible, escritura Admin** (`config_comision`, `config_costo_laboral`,
+  `config_operacion`, `config_impuesto`): `_select USING (true)` (el Transportista las
+  lee para calcular el precio de su oferta) + `_insert`/`_update`/`_delete` sólo con
+  `fn_es_administrador()`. Sin `FOR ALL`.
+- **`vehiculo_costo`**: privada. Sólo el Transportista dueño del `vehiculo` (join por
+  `vehiculo.transportista_id`) y el Admin pueden `SELECT`/`INSERT`/`UPDATE`. **No** debe
+  haber lectura pública, aunque `vehiculo` sí la tenga.
+- **`oferta`** (riesgos conocidos, ver `docs/DOCUMENTACION_BASE_DE_DATOS.md` §5): el
+  Cliente puede leer el desglose de costo y Cliente/Transportista pueden hacer UPDATE de
+  cualquier columna. Reportarlo como hallazgo abierto hasta que se resuelva.
 - **`incidente`**: el reportante y el Admin ven; la **contraparte no**. Verificar
   que no haya una policy que filtre incidentes ajenos.
 - **`viaje_ubicacion`**: solo el propio Transportista puede `INSERT`; Cliente y
@@ -81,7 +90,9 @@ puede hacer:
 ### C5 — Campos protegidos por trigger
 
 `transportista` (`estado_habilitacion_codigo`, `calificacion_promedio`,
-`tasa_cumplimiento`) y `viaje` (columnas `*_snapshot` + FKs estructurales) deben
+`tasa_cumplimiento`) y `viaje` (snapshot financiero completo + `distancia_km_snapshot` +
+FKs estructurales; ver la lista exacta en `docs/DOCUMENTACION_BASE_DE_DATOS.md`
+§Dominio 5) deben
 tener trigger `BEFORE UPDATE` que impida al usuario común cambiarlos. Verificar
 que el trigger existe y está `enabled`.
 

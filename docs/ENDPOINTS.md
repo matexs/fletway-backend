@@ -6,7 +6,7 @@
 
 **Base URL (dev):** `http://localhost:8080`
 **Versión de contrato:** `v0` (draft — nada implementado todavía)
-**Última actualización:** 2026-09-07
+**Última actualización:** 2026-09-24
 
 ---
 
@@ -47,13 +47,13 @@ Readiness (incluye ping a la base). Sin auth. `200 {"status":"ready","db":"ok"}`
 |-------|---------------------------|-----|-------|
 | RF-05 | `POST /auth/registro/cliente` | público→Cliente | crea `usuario` + `cliente`; delega credenciales a Supabase Auth |
 | RF-16 | `POST /auth/registro/transportista` | público→Transportista | crea `usuario` + `transportista` (estado `pendiente`) + carga docs |
-| RF-18 | `POST /transportista/vehiculos` | Transportista | alta de `vehiculo` |
-| RF-06 / RN-01 / RN-02 | `POST /solicitudes` | Cliente | crea `solicitud` + `solicitud_objeto`; devuelve cotización estimada; dispara push async (RN-05) |
+| RF-18 | `POST /transportista/vehiculos` | Transportista | alta de `vehiculo` (con `largo_util_m`/`ancho_util_m`/`alto_util_m`) + su fila en `vehiculo_costo` (privada) |
+| RF-06 | `POST /solicitudes` | Cliente | crea `solicitud` (acceso por origen/destino) + `solicitud_objeto` (copia peso, dimensiones y flags de rotación/apilado); **no calcula ni devuelve monto** (sin cotización estimada); dispara push async (RN-05) |
 | RF-06 | `GET /catalogo/objetos` | autenticado | catálogo RN-08 |
 | RF-17 / RN-04 | `GET /transportista/solicitudes` | Transportista | solicitudes compatibles por zona/vehículo |
-| RF-17 / RN-01 | `POST /solicitudes/{id}/ofertas` | Transportista habilitado | crea `oferta` con precio calculado |
-| RF-07 / RN-05 | `GET /solicitudes/{id}/ofertas` | Cliente | **top 3 por score**, `?ver_mas=true` para el resto |
-| RF-07 | `POST /ofertas/{id}/aceptar` | Cliente | confirma `viaje` con snapshots (RNF-03); habilita chat (RI-05) |
+| RF-17 / RN-01 / RN-02 | `POST /solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes`. Calcula viajes y precio (`docs/ALGORITMO_*.md`) y guarda `oferta` con desglose. Si la carga no entra en el vehículo → error de validación (envelope D-11, código HTTP a definir) con el motivo por objeto, sin oferta |
+| RF-07 / RN-05 | `GET /solicitudes/{id}/ofertas` | Cliente | **top 3 por score**, `?ver_mas=true` para el resto. Al Cliente sólo se le expone `precio_calculado`, nunca el desglose de costo |
+| RF-07 | `POST /ofertas/{id}/aceptar` | Cliente | confirma `viaje` copiando el desglose de la `oferta` a los `*_snapshot` (RNF-03), sin recalcular; habilita chat (RI-05) |
 | RF-08 / RN-07 | `POST /viajes/{id}/cancelar` (Cliente) | Cliente | sin cargo / con resarcimiento según estado |
 | RF-19 | `POST /viajes/{id}/cancelar` (Transportista) | Transportista | baja `tasa_cumplimiento`, sin penalización económica |
 | RF-21 | `GET /viajes/{id}` | Cliente/Transportista del viaje | incluye PIN para el Transportista |
