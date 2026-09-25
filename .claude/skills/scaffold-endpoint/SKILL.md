@@ -125,8 +125,9 @@ Mínimo:
 - Validación (400 con el `code` correcto ante body inválido).
 - **RLS:** un usuario que no es dueño / de otro rol recibe 403/404 y **no** ve
   ni modifica el recurso.
-- Si toca una RN: un test que la fija (ej. el precio del response = cálculo
-  esperado con `config_tarifa` de prueba).
+- Si toca una RN: un test que la fija (ej. el `precio_calculado` de la oferta =
+  cálculo esperado con `config_*` y `vehiculo_costo` de prueba; ver
+  `docs/ALGORITMO_COTIZACION.md`).
 
 ### 8. Documentar
 

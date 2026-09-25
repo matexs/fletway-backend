@@ -61,7 +61,7 @@ Encabezado obligatorio en el archivo:
 ALTER TABLE x ENABLE ROW LEVEL SECURITY;
 ```
 
-Nunca dejar una tabla nueva sin RLS (todas las 34 actuales lo tienen).
+Nunca dejar una tabla nueva sin RLS (todas las tablas actuales lo tienen).
 
 **P2 — `(select auth.uid())`, nunca `auth.uid()` pelado.**
 

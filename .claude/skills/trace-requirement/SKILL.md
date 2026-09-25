@@ -58,8 +58,12 @@ Si el RF referencia una RN (ej. RF-06 → RN-01, RN-02), verificar **también** 
 RN acá. Chequeos frecuentes:
 
 - **RN-01 / RN-02:** el precio y la cantidad de viajes salen de un cálculo del
-  sistema; el Cliente **no** los envía en el request. La tarifa viene de
-  `config_tarifa` **vigente** (una sola fila sin `vigente_hasta`).
+  sistema **al crear la `oferta`**; nadie los envía en el request. `POST /solicitudes`
+  **no** calcula ni devuelve montos (sin cotización estimada). Los parámetros vienen de
+  `config_costo_laboral`, `config_operacion`, `config_impuesto` y `config_comision`
+  **vigentes** (una sola fila sin `vigente_hasta`) y de `vehiculo_costo`; `config_tarifa`
+  está deprecada y no se usa. Diseño: `docs/ALGORITMO_COTIZACION.md` y
+  `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
 - **RN-03:** el `%` de comisión se toma de `config_comision` vigente y se
   **congela** en `viaje.porcentaje_comision_snapshot`.
 - **RN-04:** el matching compara zona del transportista contra **origen o
@@ -69,7 +73,8 @@ RN acá. Chequeos frecuentes:
 - **RN-06:** dos PIN (inicio y fin) + registro de ubicación; la `resena` se
   habilita recién con PIN de fin válido.
 - **RNF-03:** al confirmar un `viaje` se **escriben** todas las columnas
-  `*_snapshot` (tarifa, vehículo, coordenadas, nombres).
+  `*_snapshot` vigentes (desglose de costo copiado de la `oferta`, vehículo,
+  coordenadas, nombres). Las 6 de tarifa plana están deprecadas y **no** se escriben.
 
 ### 5. Verificar RLS
 
