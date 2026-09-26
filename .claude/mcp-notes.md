@@ -6,7 +6,7 @@ Proyecto: **`dbFletway`** (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas �
 
 ## Estado de la conexión
 
-> ✅ **Conectado y en uso.** Primera verificación del esquema el 2026-09-07
+> **Conectado y en uso.** Primera verificación del esquema el 2026-09-07
 > (`docs/VERIFICACION_ESQUEMA_2026-09-07.md`). El 2026-09-24 se aplicaron las migraciones
 > `0001`–`0007` con `apply_migration`, con confirmación humana explícita, y se verificó el
 > resultado (ver `docs/ESTADO_PROYECTO.md` → Bitácora).

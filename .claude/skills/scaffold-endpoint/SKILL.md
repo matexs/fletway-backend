@@ -132,7 +132,7 @@ Mínimo:
 ### 8. Documentar
 
 - `docs/ENDPOINTS.md`: método, path, auth, request, response, errores, RF/RN.
-- `docs/TRAZABILIDAD.md`: pasar el RF a 🟡 o (tras `trace-requirement`) ✅.
+- `docs/TRAZABILIDAD.md`: pasar el RF a `EN CURSO` o (tras `trace-requirement`) `OK`.
 - Commit: `feat(<ctx>): <resumen> [RF-XX, RN-YY]`.
   Branch: `feat/RF-XX-<slug>`.
 

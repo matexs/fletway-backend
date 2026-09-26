@@ -20,21 +20,21 @@ implementados.
 
 | Área | Estado | Notas |
 |------|--------|-------|
-| Base de datos (Supabase `dbFletway`) | ✅ Desplegada · ✅ Migrada (2026-09-24) · ✅ Verificada vía MCP | **39** tablas, RLS activo en todas, **127** políticas 100 % con `(select auth.uid())`, triggers `trg_proteger_campos_*` OK, sin enums de Postgres. 20 migraciones registradas (13 iniciales + `0001`–`0007`). Documentada en `docs/DOCUMENTACION_BASE_DE_DATOS.md` (actualizada 2026-09-24, incluye historial de cambios). |
-| Diseño de cotización (RN-01) y cálculo de viajes (RN-02) | ✅ Documentado | `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`. Sin cotización estimada al publicar: el único precio es el de cada oferta. Viajes estimados con `bavix/boxpacker3/v2` (greedy). Pseudocódigo de empaquetado compilado y probado contra la v2 en un prototipo descartable. |
-| ERS | ✅ Cerrada | 24 RF, 8 RN, 4 RNF, 5 RI. `docs/ERS_Fletway.pdf`. |
-| Estructura del repo Go | ✅ Scaffolding | `cmd/`, `internal/platform/`, `internal/feature/`, `migrations/`, `qa/`, `docs/`. |
-| Archivos de contexto | ✅ | `CLAUDE.md`, este archivo, `DECISIONES_TECNICAS.md`, `TRAZABILIDAD.md`, `ENDPOINTS.md`, `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`. |
-| Skills de Claude Code | ✅ | `supabase-migration`, `trace-requirement`, `scaffold-endpoint`, `rls-policy-review`, `update-project-state`. |
-| Config MCP Supabase | ✅ | `.claude/mcp-notes.md` (solo lectura por defecto; escritura con confirmación). |
-| Endpoints de negocio | ❌ No empezado | Solo `GET /healthz` y `GET /readyz` de ejemplo. |
-| Verificación de módulos Go | ⚠️ Pendiente | `go mod tidy` no corrido (falta resolver dependencias en red). |
+| Base de datos (Supabase `dbFletway`) | Desplegada · Migrada (2026-09-24) · Verificada vía MCP | **39** tablas, RLS activo en todas, **127** políticas 100 % con `(select auth.uid())`, triggers `trg_proteger_campos_*` OK, sin enums de Postgres. 20 migraciones registradas (13 iniciales + `0001`–`0007`). Documentada en `docs/DOCUMENTACION_BASE_DE_DATOS.md` (actualizada 2026-09-24, incluye historial de cambios). |
+| Diseño de cotización (RN-01) y cálculo de viajes (RN-02) | Documentado | `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`. Sin cotización estimada al publicar: el único precio es el de cada oferta. Viajes estimados con `bavix/boxpacker3/v2` (greedy). Pseudocódigo de empaquetado compilado y probado contra la v2 en un prototipo descartable. |
+| ERS | Cerrada | 24 RF, 8 RN, 4 RNF, 5 RI. `docs/ERS_Fletway.pdf`. |
+| Estructura del repo Go | Scaffolding | `cmd/`, `internal/platform/`, `internal/feature/`, `migrations/`, `qa/`, `docs/`. |
+| Archivos de contexto | Hecho | `CLAUDE.md`, este archivo, `DECISIONES_TECNICAS.md`, `TRAZABILIDAD.md`, `ENDPOINTS.md`, `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`. |
+| Skills de Claude Code | Hecho | `supabase-migration`, `trace-requirement`, `scaffold-endpoint`, `rls-policy-review`, `update-project-state`. |
+| Config MCP Supabase | Hecho | `.claude/mcp-notes.md` (solo lectura por defecto; escritura con confirmación). |
+| Endpoints de negocio | No empezado | Solo `GET /healthz` y `GET /readyz` de ejemplo. |
+| Verificación de módulos Go | Pendiente | `go mod tidy` no corrido (falta resolver dependencias en red). |
 
 ---
 
 ## Pendientes / próximos pasos (ordenados)
 
-1. ~~**Verificar esquema real vía MCP de Supabase.**~~ ✅ **Hecho 2026-09-07.** Corridos
+1. ~~**Verificar esquema real vía MCP de Supabase.**~~ **Hecho 2026-09-07.** Corridos
    `list_tables`, `list_migrations`, `list_extensions`, `get_advisors` (security + performance)
    y consultas de solo lectura sobre `pg_class` / `pg_policies` / `pg_trigger` / `pg_proc` /
    `pg_type` / `pg_index`. Informe completo: **`docs/VERIFICACION_ESQUEMA_2026-09-07.md`**.
@@ -45,10 +45,10 @@ implementados.
    127 políticas). Advisors: 4 WARN de seguridad
    (funciones helper `SECURITY DEFINER` ejecutables por `anon`/`authenticated`) + 43 INFO
    `unused_index` (base vacía, esperable).
-2. ~~**Rediseñar cotización y cálculo de viajes y migrar el esquema.**~~ ✅ **Hecho 2026-09-24.**
+2. ~~**Rediseñar cotización y cálculo de viajes y migrar el esquema.**~~ **Hecho 2026-09-24.**
    Migraciones `0001`–`0007` aplicadas con confirmación explícita (ver bitácora).
    Quedan abiertos (detalle en `docs/ALGORITMO_COTIZACION.md` §8):
-   - 🔓 Ubicación de `margen_pct` (config de plataforma vs. por Transportista).
+   - Ubicación de `margen_pct` (config de plataforma vs. por Transportista).
    - Relación `solicitud.cantidad_ayudantes_solicitados` ↔ `oferta.cantidad_ayudantes`.
    - Ambigüedades de fórmula: `tiempo_espera_min`, eficiencia de ayudantes, costos adicionales
      por viaje u oferta, horas del viaje de vuelta, proveedor de ruteo.
@@ -79,11 +79,12 @@ implementados.
 - **4 WARN de seguridad (advisors)** sobre `fn_es_administrador()` /
   `fn_es_transportista_habilitado()` (`SECURITY DEFINER` ejecutables por `anon`/`authenticated`).
   Intencional como helpers de RLS; revisar en el bloque de hardening antes de exponer la app.
-- **Toolchain:** `go` 1.27.1 disponible; `flutter` NO (no afecta a este repo).
+- **Toolchain:** `go` 1.27.1 disponible; `flutter` NO (no afecta a este repo). El módulo y el CI
+  usan **Go 1.27** (ver bitácora 2026-09-26).
 - Faltan credenciales reales de la pasarela de pagos (Mercado Pago / Stripe) — RI-03.
 - Valores de `config_costo_laboral`, `config_operacion`, `config_impuesto` y `config_comision`
   son **ilustrativos**; hay que cargar los reales antes de cualquier cálculo que se dé por válido
-  (RN-01, RN-03). ⚠️ Confirmar la ART: el texto del documento fuente dice 18 %, la constante 10 %
+  (RN-01, RN-03). **Atención:** Confirmar la ART: el texto del documento fuente dice 18 %, la constante 10 %
   (la seed usa 10 %). `config_tarifa` está deprecada.
 - Las 5 filas del catálogo `objeto` no tienen dimensiones: bloquea usar el catálogo al publicar
   solicitudes (RF-06) hasta que se carguen.
@@ -101,3 +102,4 @@ implementados.
 | 2026-09-24 | Diseño de cotización y cálculo de viajes: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`, adaptados de los borradores contra el schema real. Decisiones: sin cotización estimada; sin tramo de acercamiento; costos de vehículo en tabla privada `vehiculo_costo`; `peso_maximo_kg` = carga útil; tablas `config_*` nuevas y `config_tarifa` deprecada; deprecar ahora y hacer DROP después. Empaquetado con boxpacker3 **v2** (greedy, sin finishers, 60 % de apoyo) tras medir la v1 y la v2. |
 | 2026-09-24 | Migraciones `0001`–`0007` **aplicadas** en `dbFletway` con confirmación humana explícita. 35 → 39 tablas, 109 → 127 políticas. Verificado: RLS en todas, sin `auth.uid()` desnudo, trigger de `viaje` actualizado, seeds cargadas; advisors sin hallazgos nuevos (siguen los 4 WARN previos + 42 INFO `unused_index`). Actualizados `DOCUMENTACION_BASE_DE_DATOS.md`, `CLAUDE.md` (incluye D-2: 34 → 127 políticas) y `TRAZABILIDAD.md`. |
 | 2026-09-24 | Revisión de consistencia de todo el repo contra el esquema migrado: `README.md`, `migrations/README.md`, `ENDPOINTS.md` (RF-06 sin cotización estimada; oferta y aceptación con desglose), `DECISIONES_TECNICAS.md` (D-02 actualizado; nuevas D-13 modelo de precio, D-14 boxpacker3 v2, D-15 `margen_pct` abierta), `.claude/mcp-notes.md` y skills `supabase-migration`, `rls-policy-review`, `trace-requirement`, `scaffold-endpoint`. |
+| 2026-09-26 | Versión de Go unificada en **1.27** (`go.mod` y `.github/workflows/ci.yml`; estaban en 1.24 desde `4cb404b`, mientras el README decía 1.27+ y boxpacker3 v2 pide 1.25 o más). Causa de la baja original: la corrida de `454d68b` falló porque golangci-lint **v1.64.8** está compilado con Go 1.24 y no acepta un módulo 1.27. Ya no aplica: el CI usa golangci-lint **v2.13.2**, compilado con Go 1.27.0. Verificado localmente con ese binario exacto: 0 issues; `gofmt`, `go vet`, `go build` y `go test -race` OK. |

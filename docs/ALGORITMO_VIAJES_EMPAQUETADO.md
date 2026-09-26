@@ -6,7 +6,7 @@
 
 **Fuente:** adaptado del borrador `ALGORITMO_VIAJES_EMPAQUETADO.md`, que estaba escrito para la v1. Los nombres de tabla y columna son los **del schema real de `dbFletway`**, incluidas las migraciones `migrations/0001`–`0007` (aplicadas el 2026-09-24). La sección de la librería se reescribió después de leer el código de la v2.0.0 y medirla (2026-09-24).
 
-**Convención:** `columna` = existía en el schema original · `columna` 🆕 = agregada por las migraciones `0001`–`0007` (**aplicadas el 2026-09-24**; todas existen) · ⚠️ = diferencia con el borrador o punto a tener en cuenta.
+**Convención:** `columna` = existía en el schema original · `columna` (nuevo) = agregada por las migraciones `0001`–`0007` (**aplicadas el 2026-09-24**; todas existen) · **Atención:** marca una diferencia con el borrador o punto a tener en cuenta.
 
 ---
 
@@ -28,24 +28,24 @@ Verificado leyendo el código de la v2.0.0 y con pruebas propias, no sólo con e
 
 | Necesidad del modelo | ¿La resuelve la v2? | Cómo |
 |---|---|---|
-| Peso máximo del vehículo | ✅ | `BoxSpec.MaxWeight` |
-| Ubicar sin superposición | ✅ | Chequeo geométrico interno |
-| Cantidad de viajes sin buscar N a mano | ✅ | Un solo `BoxSpec` con `Quantity: maxViajes`. La librería abre copias del vehículo a medida que las necesita y `len(result.Boxes)` es la cantidad de viajes |
-| Cantidad por ítem | ✅ | `ItemSpec.Quantity` (no hay que expandir unidad por unidad) |
-| `rotacion_vertical = false` (no se puede voltear) | ✅ | `ItemSpec.VerticalAxes = []Axis{DepthAxis}`: el alto queda vertical y el objeto sólo gira sobre el piso |
-| `rotacion_horizontal = false` **y** `rotacion_vertical = false` | ✅ | `ItemSpec.Rotation = RotationNever`: sin ninguna rotación, el largo del objeto va a lo largo del vehículo |
-| `rotacion_horizontal = false` **sola** (se puede voltear, pero no girar sobre el piso) | ⚠️ **No directo** | No hay una opción para eso. Se podría implementar con una `PlacementRule` propia que inspeccione la orientación. **En esta versión se trata como informativa** (§2.1) |
-| `apilable = false` | ✅ | `ItemSpec.NothingOnTop = true` |
-| Objetos "flotando" sin apoyo | ✅ | `Rules{MinSupportRatio}` exige que un porcentaje de la base esté apoyado. Se usa 0,6 (§3) |
-| Orientaciones inestables (alto y angosto) | ✅ automático | La librería las descarta salvo que el objeto no tenga ninguna orientación estable que entre |
-| Por qué no entró un objeto | ✅ | `result.Unpacked[i].Reason`: `ReasonTooBig`, `ReasonTooHeavy`, `ReasonNoOrientationFits`, `ReasonNoRoom`, … |
-| Cota inferior de viajes | ✅ | `result.Report.Bound.Boxes`, útil para logs y para la memoria del TFG |
-| Peso máximo que soporta un objeto encima | ✅ disponible, **no usado** | `ItemSpec.MaxLoadOnTop` (kg). El schema no tiene esa columna y no se propone |
-| Mínimo de viajes garantizado | ❌ | Es una heurística. No se necesita (§0) |
-| Centro de gravedad, carga por eje, orden de descarga, fragilidad | ❌ | Fuera de alcance |
-| Tiempo máximo de cómputo confiable | ⚠️ | `WithBudget` existe, pero en las pruebas el buscador `NewSearch` lo excedió (54 s con un límite de 5 s), y al cortar devuelve error sin resultado parcial. **No se usa.** Ver §3 |
+| Peso máximo del vehículo | Sí | `BoxSpec.MaxWeight` |
+| Ubicar sin superposición | Sí | Chequeo geométrico interno |
+| Cantidad de viajes sin buscar N a mano | Sí | Un solo `BoxSpec` con `Quantity: maxViajes`. La librería abre copias del vehículo a medida que las necesita y `len(result.Boxes)` es la cantidad de viajes |
+| Cantidad por ítem | Sí | `ItemSpec.Quantity` (no hay que expandir unidad por unidad) |
+| `rotacion_vertical = false` (no se puede voltear) | Sí | `ItemSpec.VerticalAxes = []Axis{DepthAxis}`: el alto queda vertical y el objeto sólo gira sobre el piso |
+| `rotacion_horizontal = false` **y** `rotacion_vertical = false` | Sí | `ItemSpec.Rotation = RotationNever`: sin ninguna rotación, el largo del objeto va a lo largo del vehículo |
+| `rotacion_horizontal = false` **sola** (se puede voltear, pero no girar sobre el piso) | **No directo** | No hay una opción para eso. Se podría implementar con una `PlacementRule` propia que inspeccione la orientación. **En esta versión se trata como informativa** (§2.1) |
+| `apilable = false` | Sí | `ItemSpec.NothingOnTop = true` |
+| Objetos "flotando" sin apoyo | Sí | `Rules{MinSupportRatio}` exige que un porcentaje de la base esté apoyado. Se usa 0,6 (§3) |
+| Orientaciones inestables (alto y angosto) | Sí, automático | La librería las descarta salvo que el objeto no tenga ninguna orientación estable que entre |
+| Por qué no entró un objeto | Sí | `result.Unpacked[i].Reason`: `ReasonTooBig`, `ReasonTooHeavy`, `ReasonNoOrientationFits`, `ReasonNoRoom`, … |
+| Cota inferior de viajes | Sí | `result.Report.Bound.Boxes`, útil para logs y para la memoria del TFG |
+| Peso máximo que soporta un objeto encima | Sí, disponible, **no usado** | `ItemSpec.MaxLoadOnTop` (kg). El schema no tiene esa columna y no se propone |
+| Mínimo de viajes garantizado | No | Es una heurística. No se necesita (§0) |
+| Centro de gravedad, carga por eje, orden de descarga, fragilidad | No | Fuera de alcance |
+| Tiempo máximo de cómputo confiable | Parcial | `WithBudget` existe, pero en las pruebas el buscador `NewSearch` lo excedió (54 s con un límite de 5 s), y al cortar devuelve error sin resultado parcial. **No se usa.** Ver §3 |
 
-> ⚠️ **Diferencia con el borrador (que describía la v1):** el borrador decía que la librería "no soporta restringir rotación por ítem" y que "no tiene concepto de apilamiento/soporte". **Eso es cierto para la v1.3.2, no para la v2.** Con la v2, `rotacion_vertical` y `apilable` dejan de ser metadata informativa y **se aplican como restricciones reales**. Sólo `rotacion_horizontal` aislada sigue siendo informativa.
+> **Diferencia con el borrador (que describía la v1):** el borrador decía que la librería "no soporta restringir rotación por ítem" y que "no tiene concepto de apilamiento/soporte". **Eso es cierto para la v1.3.2, no para la v2.** Con la v2, `rotacion_vertical` y `apilable` dejan de ser metadata informativa y **se aplican como restricciones reales**. Sólo `rotacion_horizontal` aislada sigue siendo informativa.
 
 ---
 
@@ -53,17 +53,17 @@ Verificado leyendo el código de la v2.0.0 y con pruebas propias, no sólo con e
 
 | Origen | Columnas | Estado |
 |---|---|---|
-| `solicitud_objeto` (por `solicitud_id`) | `cantidad` (CHECK > 0), `peso_unitario_kg`, `objeto_id` **o** `nombre_personalizado` (CHECK `chk_objeto_o_personalizado`) | ✅ existen |
-| `solicitud_objeto` | `largo_m` 🆕, `ancho_m` 🆕, `alto_m` 🆕 (NOT NULL), `rotacion_horizontal` 🆕, `rotacion_vertical` 🆕, `apilable` 🆕 (NOT NULL DEFAULT true) | ✅ (`volumen_unitario_m3` queda DEPRECATED) |
-| `objeto` (sólo el nombre, si `objeto_id` no es null) | `nombre` | ✅ existe |
-| `vehiculo` (el `oferta.vehiculo_id` en curso) | `patente`, `peso_maximo_kg` (**carga útil**) | ✅ existen |
-| `vehiculo` | `largo_util_m` 🆕, `ancho_util_m` 🆕, `alto_util_m` 🆕 (NOT NULL, CHECK > 0) | ✅ (`volumen_carga_m3` queda DEPRECATED) |
+| `solicitud_objeto` (por `solicitud_id`) | `cantidad` (CHECK > 0), `peso_unitario_kg`, `objeto_id` **o** `nombre_personalizado` (CHECK `chk_objeto_o_personalizado`) | Existen |
+| `solicitud_objeto` | `largo_m` (nuevo), `ancho_m` (nuevo), `alto_m` (nuevo) (NOT NULL), `rotacion_horizontal` (nuevo), `rotacion_vertical` (nuevo), `apilable` (nuevo) (NOT NULL DEFAULT true) | Existe (`volumen_unitario_m3` queda DEPRECATED) |
+| `objeto` (sólo el nombre, si `objeto_id` no es null) | `nombre` | Existe |
+| `vehiculo` (el `oferta.vehiculo_id` en curso) | `patente`, `peso_maximo_kg` (**carga útil**) | Existen |
+| `vehiculo` | `largo_util_m` (nuevo), `ancho_util_m` (nuevo), `alto_util_m` (nuevo) (NOT NULL, CHECK > 0) | Existe (`volumen_carga_m3` queda DEPRECATED) |
 
 **Requisito de datos:** la librería trabaja en 3D, así que cada ítem y cada vehículo necesitan **tres dimensiones por separado**. Un volumen ya multiplicado no alcanza. Además, `alto` tiene que ser el alto real: es el eje vertical, sobre el que se aplican `rotacion_vertical` y `apilable`.
 
-> ⚠️ **A tener en cuenta:**
+> **A tener en cuenta:**
 > - El borrador proponía "join a `objeto` si `objeto_id` no es null, o campos propios si `nombre_personalizado`". **En la base, `solicitud_objeto` siempre guarda su propia copia** de peso, dimensiones y flags, también para ítems de catálogo. Al publicar la solicitud (RF-06), el backend copia los valores de `objeto` a la fila de `solicitud_objeto`. El planificador **lee una sola tabla**.
-> - `objeto.largo_m/ancho_m/alto_m` 🆕 son **nullable** porque las 5 filas semilla del catálogo todavía no tienen dimensiones. Hasta que el Administrador las cargue, esos objetos no se pueden copiar a una solicitud (el INSERT en `solicitud_objeto` fallaría por NOT NULL).
+> - `objeto.largo_m/ancho_m/alto_m` (nuevo) son **nullable** porque las 5 filas semilla del catálogo todavía no tienen dimensiones. Hasta que el Administrador las cargue, esos objetos no se pueden copiar a una solicitud (el INSERT en `solicitud_objeto` fallaría por NOT NULL).
 > - `vehiculo.peso_maximo_kg` **ya es carga útil** (confirmado por el humano, 2026-09-24). Se elimina la resta `PesoMaximoKg − PesoVehiculoKg` del borrador y **no** se usa `BoxSpec.EmptyWeight` (tara).
 > - `solicitud_objeto.volumen_unitario_m3` y `vehiculo.volumen_carga_m3` son derivables de las dimensiones: quedaron nullable y DEPRECATED, y el backend no las escribe. `objeto.volumen_estimado_m3` está marcada como redundante. Plan de borrado: `ALGORITMO_COTIZACION.md` §8.
 
@@ -74,7 +74,7 @@ Verificado leyendo el código de la v2.0.0 y con pruebas propias, no sólo con e
 | true | true | `Rotation: RotationBestFit` (default) | Cualquiera de las 6 orientaciones |
 | true | **false** | `VerticalAxes: []Axis{DepthAxis}` | Queda parado y puede girar sobre el piso |
 | **false** | **false** | `Rotation: RotationNever` | Sin rotación: el largo va a lo largo del vehículo |
-| **false** | true | `Rotation: RotationBestFit` | ⚠️ **Informativo:** no hay opción directa en la librería. Se loguea (§7) |
+| **false** | true | `Rotation: RotationBestFit` | **Informativo:** no hay opción directa en la librería. Se loguea (§7) |
 
 | `apilable` | `ItemSpec` |
 |---|---|
@@ -139,9 +139,9 @@ func planificarViajes(ctx context.Context, v Vehiculo, carga []Item) ([]Viaje, e
     // 3. El vehículo, disponible hasta maxViajes veces.
     vehiculo, err := boxpacker3.NewBoxFromSpec(boxpacker3.BoxSpec{
         ID:          v.Patente,
-        OuterWidth:  v.LargoUtilM, // vehiculo.largo_util_m 🆕
-        OuterHeight: v.AnchoUtilM, // vehiculo.ancho_util_m 🆕
-        OuterDepth:  v.AltoUtilM,  // vehiculo.alto_util_m 🆕 (eje vertical)
+        OuterWidth:  v.LargoUtilM, // vehiculo.largo_util_m (nuevo)
+        OuterHeight: v.AnchoUtilM, // vehiculo.ancho_util_m (nuevo)
+        OuterDepth:  v.AltoUtilM,  // vehiculo.alto_util_m (nuevo) (eje vertical)
         MaxWeight:   v.PesoUtilKg, // vehiculo.peso_maximo_kg (ya es carga útil)
         Quantity:    maxViajes,
     })
@@ -174,14 +174,14 @@ func armarItems(carga []Item) ([]*boxpacker3.Item, error) {
         rot, ejes := rotacionDe(it.Objeto) // tabla §2.1
         item, err := boxpacker3.NewItemFromSpec(boxpacker3.ItemSpec{
             ID:           strconv.Itoa(idx),  // índice de la fila en `carga`, para reagrupar después
-            Width:        it.Objeto.LargoM,   // solicitud_objeto.largo_m 🆕
-            Height:       it.Objeto.AnchoM,   // solicitud_objeto.ancho_m 🆕
-            Depth:        it.Objeto.AltoM,    // solicitud_objeto.alto_m 🆕 (eje vertical)
+            Width:        it.Objeto.LargoM,   // solicitud_objeto.largo_m (nuevo)
+            Height:       it.Objeto.AnchoM,   // solicitud_objeto.ancho_m (nuevo)
+            Depth:        it.Objeto.AltoM,    // solicitud_objeto.alto_m (nuevo) (eje vertical)
             Weight:       it.Objeto.PesoKg,   // solicitud_objeto.peso_unitario_kg
             Quantity:     it.Cantidad,        // solicitud_objeto.cantidad
             Rotation:     rot,
             VerticalAxes: ejes,
-            NothingOnTop: !it.Objeto.Apilable, // solicitud_objeto.apilable 🆕
+            NothingOnTop: !it.Objeto.Apilable, // solicitud_objeto.apilable (nuevo)
         })
         if err != nil {
             return nil, fmt.Errorf("ítem %q: %w", it.Objeto.Nombre, err)
@@ -254,7 +254,7 @@ func noFactible(carga []Item, unpacked []boxpacker3.UnpackedItem) error {
 }
 ```
 
-- `len(viajes)` es el valor de **`oferta.cantidad_viajes`** (✅ existe, CHECK > 0) y se congela en `viaje.cantidad_viajes_snapshot` 🆕 al aceptar la oferta.
+- `len(viajes)` es el valor de **`oferta.cantidad_viajes`** (existe, CHECK > 0) y se congela en `viaje.cantidad_viajes_snapshot` (nuevo) al aceptar la oferta.
 - Las posiciones y orientaciones de `box.Items` **no se guardan** en la base: son una aproximación, no un plano de carga. Mostrar un plano queda fuera de alcance.
 - **`ErrNoFactible`:** el endpoint `POST /solicitudes/{id}/ofertas` devuelve un error de validación con el motivo por objeto (`"Ropero: no permitted orientation fits"`, `"Sofá 2 cuerpos: too big"`) y no inserta la `oferta`. Significa "no es físicamente posible con este vehículo", no "sale muy caro". Los textos de `Reason` vienen en inglés desde la librería; traducirlos para la API es tarea del handler.
 
@@ -284,21 +284,21 @@ Algunas observaciones:
 - En el furgón con restricciones, los roperos quedaron afuera por `ReasonNoOrientationFits` (1,90 m de alto parado contra 1,70 m del furgón) y se excluyen de la cota. Por eso esas filas tendrían `ErrNoFactible` en uso real. Se midieron igual para ver el tiempo.
 - La v1.3.2 con la misma carga estimaba **7 viajes** para el furgón con 100 unidades y **10** para el camión con 400. La v2 estima 4 y 5, mucho más cerca de la cota. Como la cantidad de viajes multiplica el costo, esto hace el precio bastante más realista.
 - Una **mudanza típica (50–100 unidades) tarda menos de 0,2 s.** Entre 200 y 400 unidades, de 0,4 a 2,5 s. El cálculo corre **una vez por oferta**, no por consulta.
-- 🔓 **Abierto (no decidido):** si conviene un **tope de unidades por solicitud** para acotar el peor caso. No se propone ningún valor.
+- **Abierto (no decidido):** si conviene un **tope de unidades por solicitud** para acotar el peor caso. No se propone ningún valor.
 
 ---
 
 ## 7. RN-02 y `tipo_vehiculo`
 
-> ⚠️ **Diferencia con la ERS:** la ERS describe RN-02 como un cálculo **por `tipo_vehiculo` al publicar la solicitud**. Este algoritmo corre **por `vehiculo` real, al ofertar** (decisión D-14, reflejada en `CLAUDE.md`, `TRAZABILIDAD.md` y `DOCUMENTACION_BASE_DE_DATOS.md`). `tipo_vehiculo` sólo tiene `volumen_estandar_m3` y `peso_maximo_estandar_kg`, **sin dimensiones**, así que no se le puede aplicar el empaquetado 3D. Si se mantiene algún chequeo interno por tipo, sólo puede usar la cota de peso y volumen del paso 1 de §4. No se proponen dimensiones para `tipo_vehiculo`: queda abierto.
+> **Diferencia con la ERS:** la ERS describe RN-02 como un cálculo **por `tipo_vehiculo` al publicar la solicitud**. Este algoritmo corre **por `vehiculo` real, al ofertar** (decisión D-14, reflejada en `CLAUDE.md`, `TRAZABILIDAD.md` y `DOCUMENTACION_BASE_DE_DATOS.md`). `tipo_vehiculo` sólo tiene `volumen_estandar_m3` y `peso_maximo_estandar_kg`, **sin dimensiones**, así que no se le puede aplicar el empaquetado 3D. Si se mantiene algún chequeo interno por tipo, sólo puede usar la cota de peso y volumen del paso 1 de §4. No se proponen dimensiones para `tipo_vehiculo`: queda abierto.
 
 ---
 
 ## 8. Checklist de implementación
 
 1. Agregar la dependencia **v2**: `go get github.com/bavix/boxpacker3/v2@v2.0.0` (pide Go ≥ 1.25; el repo usa 1.27). **No** usar el módulo sin `/v2`, que baja la v1.3.2 con otra API y sin restricciones de rotación ni apilado.
-2. Leer los ítems **sólo de `solicitud_objeto`**: `cantidad`, `peso_unitario_kg`, `largo_m` 🆕, `ancho_m` 🆕, `alto_m` 🆕, `rotacion_horizontal` 🆕, `rotacion_vertical` 🆕 y `apilable` 🆕 (migración 0001, aplicada).
-3. Leer la capacidad del vehículo de `vehiculo.peso_maximo_kg` (carga útil, sin tara) y `vehiculo.largo_util_m`, `ancho_util_m` y `alto_util_m` 🆕 (migración 0002, aplicada).
+2. Leer los ítems **sólo de `solicitud_objeto`**: `cantidad`, `peso_unitario_kg`, `largo_m` (nuevo), `ancho_m` (nuevo), `alto_m` (nuevo), `rotacion_horizontal` (nuevo), `rotacion_vertical` (nuevo) y `apilable` (nuevo) (migración 0001, aplicada).
+3. Leer la capacidad del vehículo de `vehiculo.peso_maximo_kg` (carga útil, sin tara) y `vehiculo.largo_util_m`, `ancho_util_m` y `alto_util_m` (nuevo) (migración 0002, aplicada).
 4. Respetar el mapeo de ejes: `Width` = largo, `Height` = ancho, **`Depth` = alto (vertical)**. Invertirlo hace que `rotacion_vertical` y `apilable` se apliquen sobre el eje equivocado.
 5. Usar exactamente la configuración de §3: greedy de una pasada, `WithFinishers()` vacío y `MinSupportRatio: 0.6`. No `NewSearch`, no `NewPortfolio`, no `WithBudget`.
 6. Aplicar la cota rápida por peso y volumen **antes** de llamar a la librería.

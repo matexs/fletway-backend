@@ -178,7 +178,7 @@ Todas las tablas tienen RLS activo. Filosofía general: **lectura pública** en 
 | `transportista_zona` | lectura pública | gestiona las propias | ABM completo |
 | `solicitud` | ve/crea/edita las propias | ve publicadas de su zona + en las que ya se postuló | todo |
 | `solicitud_objeto` | hereda visibilidad de `solicitud` | hereda visibilidad de `solicitud` | todo |
-| `oferta` | ve las de sus solicitudes (⚠️ todas las columnas, incluido el desglose de costo); acepta/rechaza | crea/ve/retira las propias (requiere estar habilitado) | todo |
+| `oferta` | ve las de sus solicitudes (**Atención:** todas las columnas, incluido el desglose de costo); acepta/rechaza | crea/ve/retira las propias (requiere estar habilitado) | todo |
 | `viaje` | ve/actualiza el propio | ve/actualiza el propio | todo (campos snapshot protegidos por trigger) |
 | `viaje_ubicacion` | ve el de sus viajes | inserta solo en sus propios viajes | todo |
 | `config_costo_laboral` / `config_operacion` / `config_impuesto` / `config_comision` | lectura | lectura (la necesita para calcular el precio de su oferta) | ABM completo |

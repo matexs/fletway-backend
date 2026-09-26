@@ -13,7 +13,7 @@ description: >-
 
 ## Cuándo usar
 
-- Antes de marcar un RF/RN como ✅ en `docs/TRAZABILIDAD.md`.
+- Antes de marcar un RF/RN como `OK` en `docs/TRAZABILIDAD.md`.
 - En la revisión de un PR que dice implementar un requisito.
 - Para auditar qué % de la ERS está realmente cubierto.
 
@@ -84,7 +84,7 @@ ejecutar la operación. Idealmente esto es un test.
 
 ### 6. Veredicto
 
-- **CERRADO (✅):** todos los ítems `implementado`, RN ligadas verificadas, hay
+- **CERRADO (`OK`):** todos los ítems `implementado`, RN ligadas verificadas, hay
   al menos un test por camino feliz + un test de RLS, y existe caso de prueba en
   `qa/` en estado ok.
 - **NO CERRADO:** cualquier ítem `parcial` / `ausente` / `contradice la ERS`, o
@@ -104,4 +104,4 @@ escalarla.
 - Confirmar `viaje` sin escribir los `*_snapshot` (viola RNF-03).
 - Notificación de RN-05 hecha sincrónica dentro del request (viola RNF-02).
 - `resena` aceptada sin PIN de fin validado (viola RN-06).
-- Marcar ✅ sin test de RLS.
+- Marcar `OK` sin test de RLS.
