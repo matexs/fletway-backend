@@ -5,7 +5,7 @@
 -- Afecta: viaje (columnas nuevas + deprecación de 6 snapshots de tarifa plana),
 --         función fn_proteger_campos_viaje (CREATE OR REPLACE; el trigger trg_proteger_campos_viaje no cambia)
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 --    Depende de 0005 (los valores se copian desde oferta al confirmar el viaje).
 --

@@ -4,7 +4,7 @@
 -- Afecta: config_costo_laboral, config_operacion, config_impuesto (tablas nuevas + 4 policies c/u + seed ilustrativa);
 --         config_tarifa (solo COMMENT de deprecación)
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 --
 -- Decisión confirmada por el humano (2026-09-24): tablas nuevas versionadas;
@@ -12,7 +12,7 @@
 --
 -- Convención de porcentajes: 0–100 con numeric(5,2), igual que config_comision.porcentaje.
 --
--- ⚠️ margen_pct NO está en ninguna de estas tablas a propósito: su ubicación
+-- ATENCIÓN: margen_pct NO está en ninguna de estas tablas a propósito: su ubicación
 --    (config de plataforma vs. por Transportista) es una DECISIÓN ABIERTA.
 
 BEGIN;

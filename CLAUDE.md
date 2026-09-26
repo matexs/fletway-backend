@@ -272,8 +272,6 @@ Lo que **no** se mezcla:
   `docs/TRAZABILIDAD.md`), "Atención:", "(nuevo)".
 - Los caracteres tipográficos que no son emojis (flechas, `≥`, `·`, `—`, líneas de diagramas)
   están permitidos.
-- Deuda conocida: los comentarios de `migrations/0001`–`0007` y la salida de
-  `scripts/pre-commit` todavía tienen símbolos de este tipo. Se corrigen en una tarea aparte.
 
 ---
 
