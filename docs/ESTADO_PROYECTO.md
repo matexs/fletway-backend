@@ -79,7 +79,8 @@ implementados.
 - **4 WARN de seguridad (advisors)** sobre `fn_es_administrador()` /
   `fn_es_transportista_habilitado()` (`SECURITY DEFINER` ejecutables por `anon`/`authenticated`).
   Intencional como helpers de RLS; revisar en el bloque de hardening antes de exponer la app.
-- **Toolchain:** `go` 1.27.1 disponible; `flutter` NO (no afecta a este repo).
+- **Toolchain:** `go` 1.27.1 disponible; `flutter` NO (no afecta a este repo). El módulo y el CI
+  usan **Go 1.27** (ver bitácora 2026-09-26).
 - Faltan credenciales reales de la pasarela de pagos (Mercado Pago / Stripe) — RI-03.
 - Valores de `config_costo_laboral`, `config_operacion`, `config_impuesto` y `config_comision`
   son **ilustrativos**; hay que cargar los reales antes de cualquier cálculo que se dé por válido
@@ -101,3 +102,4 @@ implementados.
 | 2026-09-24 | Diseño de cotización y cálculo de viajes: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`, adaptados de los borradores contra el schema real. Decisiones: sin cotización estimada; sin tramo de acercamiento; costos de vehículo en tabla privada `vehiculo_costo`; `peso_maximo_kg` = carga útil; tablas `config_*` nuevas y `config_tarifa` deprecada; deprecar ahora y hacer DROP después. Empaquetado con boxpacker3 **v2** (greedy, sin finishers, 60 % de apoyo) tras medir la v1 y la v2. |
 | 2026-09-24 | Migraciones `0001`–`0007` **aplicadas** en `dbFletway` con confirmación humana explícita. 35 → 39 tablas, 109 → 127 políticas. Verificado: RLS en todas, sin `auth.uid()` desnudo, trigger de `viaje` actualizado, seeds cargadas; advisors sin hallazgos nuevos (siguen los 4 WARN previos + 42 INFO `unused_index`). Actualizados `DOCUMENTACION_BASE_DE_DATOS.md`, `CLAUDE.md` (incluye D-2: 34 → 127 políticas) y `TRAZABILIDAD.md`. |
 | 2026-09-24 | Revisión de consistencia de todo el repo contra el esquema migrado: `README.md`, `migrations/README.md`, `ENDPOINTS.md` (RF-06 sin cotización estimada; oferta y aceptación con desglose), `DECISIONES_TECNICAS.md` (D-02 actualizado; nuevas D-13 modelo de precio, D-14 boxpacker3 v2, D-15 `margen_pct` abierta), `.claude/mcp-notes.md` y skills `supabase-migration`, `rls-policy-review`, `trace-requirement`, `scaffold-endpoint`. |
+| 2026-09-26 | Versión de Go unificada en **1.27** (`go.mod` y `.github/workflows/ci.yml`; estaban en 1.24 desde `4cb404b`, mientras el README decía 1.27+ y boxpacker3 v2 pide 1.25 o más). Causa de la baja original: la corrida de `454d68b` falló porque golangci-lint **v1.64.8** está compilado con Go 1.24 y no acepta un módulo 1.27. Ya no aplica: el CI usa golangci-lint **v2.13.2**, compilado con Go 1.27.0. Verificado localmente con ese binario exacto: 0 issues; `gofmt`, `go vet`, `go build` y `go test -race` OK. |
