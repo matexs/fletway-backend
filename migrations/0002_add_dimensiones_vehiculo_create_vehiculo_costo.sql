@@ -3,7 +3,7 @@
 -- Reversible: sí (DROP TABLE vehiculo_costo; DROP COLUMN de dimensiones; SET NOT NULL sobre volumen_carga_m3)
 -- Afecta: vehiculo (columnas nuevas + deprecación de volumen_carga_m3), vehiculo_costo (tabla nueva + 3 policies)
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 --
 -- Decisiones confirmadas por el humano (2026-09-24):

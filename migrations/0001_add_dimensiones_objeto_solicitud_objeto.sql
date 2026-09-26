@@ -3,7 +3,7 @@
 -- Reversible: sí (DROP COLUMN de las columnas nuevas; SET NOT NULL de nuevo sobre volumen_unitario_m3)
 -- Afecta: objeto, solicitud_objeto (columnas nuevas + deprecación de volumen_unitario_m3). Sin cambios de RLS.
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 
 BEGIN;

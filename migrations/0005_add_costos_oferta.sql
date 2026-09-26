@@ -3,7 +3,7 @@
 -- Reversible: sí (DROP COLUMN de las columnas nuevas)
 -- Afecta: oferta (columnas nuevas). Sin cambios de RLS (ver advertencia abajo).
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 --
 -- Por qué el desglose vive en oferta (y no solo costo_operativo):
@@ -11,7 +11,7 @@
 --   pass-through, esa sesión no puede leer vehiculo_costo ni recalcular nada:
 --   el snapshot de viaje tiene que COPIARSE desde la oferta aceptada.
 --
--- ⚠️ Advertencia (no resuelta acá): oferta_select permite al Cliente leer
+-- ADVERTENCIA (no resuelta acá): oferta_select permite al Cliente leer
 --   todas las columnas de las ofertas de sus solicitudes → verá costo_operativo
 --   y el desglose. Y oferta_update permite a Cliente y Transportista modificar
 --   cualquier columna (incluido precio_calculado, ya hoy). Ver §7 del doc.

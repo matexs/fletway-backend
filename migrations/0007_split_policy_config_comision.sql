@@ -3,7 +3,7 @@
 -- Reversible: sí (DROP de las 4 policies nuevas; recrear config_comision_admin FOR ALL USING/WITH CHECK fn_es_administrador())
 -- Afecta: policies de config_comision
 --
--- ✅ APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
+-- APLICADA el 2026-09-24 vía apply_migration (confirmación humana explícita).
 --    Diseño: docs/ALGORITMO_COTIZACION.md y docs/ALGORITMO_VIAJES_EMPAQUETADO.md.
 --
 -- Problema: hoy config_comision tiene una única policy config_comision_admin
