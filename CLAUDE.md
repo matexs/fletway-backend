@@ -54,7 +54,7 @@ declararlo en `docs/TRAZABILIDAD.md`.
 
 | RN | Qué exige | Dónde impacta en el backend |
 |----|-----------|------------------------------|
-| **RN-01** | Precio **automático** del servicio en función de distancia, tiempo, cantidad de viajes, peso/volumen, demanda, escalera/altura, ayudantes y tarifa base. Diseño que priorice **ganancia justa** para el Transportista. **Decisión de producto:** sólo se calcula el precio de cada oferta (RF-17); **no hay cotización estimada** en RF-06. | Servicio de cotización al crear la `oferta` (`docs/ALGORITMO_COTIZACION.md`). El Cliente **no** ingresa precio. Costo operativo real (laboral + vehículo) + margen + comisión + IVA. `config_tarifa` queda **deprecada**. Sin demanda ni tramo de acercamiento. 🔓 Ubicación de `margen_pct`: **abierta**. |
+| **RN-01** | Precio **automático** del servicio en función de distancia, tiempo, cantidad de viajes, peso/volumen, demanda, escalera/altura, ayudantes y tarifa base. Diseño que priorice **ganancia justa** para el Transportista. **Decisión de producto:** sólo se calcula el precio de cada oferta (RF-17); **no hay cotización estimada** en RF-06. | Servicio de cotización al crear la `oferta` (`docs/ALGORITMO_COTIZACION.md`). El Cliente **no** ingresa precio. Costo operativo real (laboral + vehículo) + margen + comisión + IVA. `config_tarifa` queda **deprecada**. Sin demanda ni tramo de acercamiento. Ubicación de `margen_pct`: **abierta**. |
 | **RN-02** | Cantidad de viajes y cubicaje calculados **automáticamente** por el sistema. La ERS lo plantea por `tipo_vehiculo` al publicar; **en el diseño actual se calcula sobre el `vehiculo` real al ofertar** (ver §7 de `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`). | `planificarViajes` con boxpacker3 **v2** (`github.com/bavix/boxpacker3/v2`), greedy de una pasada: **estimativo para el precio, no el mínimo de viajes**. Si la carga no entra → error de validación, sin oferta. |
 | **RN-03** | La plataforma cobra **comisión sobre cada pago** procesado entre Cliente y Transportista. | Servicio de pagos. `config_comision` **vigente**; el % se congela en `viaje.porcentaje_comision_snapshot`. |
 | **RN-04** | Matchmaking **por localidad**: emparejar `solicitud` con Transportistas cuya zona de trabajo coincida con **origen o destino**. | Query de matching sobre `transportista_zona` + `solicitud.origen_zona_id`/`destino_zona_id`. Sin ensanchamiento de radio ni ventanas de tiempo (descartado, ver doc DB §6). |
@@ -92,7 +92,7 @@ Requisitos no funcionales que condicionan **toda** decisión de arquitectura:
 - **Capas por feature:** `internal/feature/<ctx>/` con `routes.go` + `handler.go` +
   `service.go` + `repository.go`. Infra compartida en `internal/platform/`.
 
-> ⚠️ Varias de estas decisiones están marcadas **"propuesta a confirmar"** en
+> **Atención:** Varias de estas decisiones están marcadas **"propuesta a confirmar"** en
 > `docs/DECISIONES_TECNICAS.md`. No las trates como cerradas hasta que el humano las confirme.
 
 ---
@@ -112,6 +112,10 @@ Requisitos no funcionales que condicionan **toda** decisión de arquitectura:
 - Cuando el commit implementa o modifica un requisito, **citá el identificador** entre
   corchetes al final del subject (`[RF-06]`, `[RN-01]`, admite varios: `[RF-06, RN-02]`).
 - Ejemplo: `feat(oferta): cálculo de precio y viajes al ofertar [RF-17, RN-01, RN-02]`
+- Subject en imperativo, en español, con minúscula inicial, sin punto final y de hasta ~72
+  caracteres. El cuerpo explica **por qué** se hizo el cambio, no qué líneas cambiaron.
+- Un commit = una unidad lógica. No mezclar refactor, feature y formato en el mismo commit.
+- **Sin emojis** en el subject ni en el cuerpo (ver "Prohibición de emojis").
 
 ### Branches
 
@@ -120,14 +124,156 @@ Requisitos no funcionales que condicionan **toda** decisión de arquitectura:
 - Formato: `<tipo>/<RF|RN>-<nn>-<slug-corto>`. Trabajo sin requisito asociado:
   `chore/<slug>` o `docs/<slug>`.
 
-### Código Go
+### Estilo y formato
 
-- `gofmt` + `goimports` obligatorio; lint con `golangci-lint` (config en `.golangci.yml`).
-- Errores: envolver con `fmt.Errorf("...: %w", err)`. Nunca `panic` en path de request
-  (el middleware `recover` lo captura, pero no es la vía normal).
+- Base: [Effective Go](https://go.dev/doc/effective_go) y
+  [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments). Ante la duda, gana lo
+  que diga Effective Go.
+- **`gofmt` + `goimports` obligatorios.** El CI rechaza archivos sin formatear. Formatear con
+  `make fmt`; instalar el hook con `make hooks`.
+- **`golangci-lint` v2** con la config de `.golangci.yml`. Linters activos, además del set por
+  defecto (`errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused`):
+
+  | Linter | Qué exige |
+  |---|---|
+  | `bodyclose` | cerrar todo `http.Response.Body` (JWKS, pasarela de pagos) |
+  | `contextcheck` | propagar el `context.Context` recibido, no crear uno nuevo |
+  | `errorlint` | envolver con `%w` y comparar con `errors.Is` / `errors.As` |
+  | `gosec` | chequeos básicos de seguridad |
+  | `revive` | estilo general (la regla `exported` está desactivada, ver "Documentación godoc") |
+  | `unconvert` | sin conversiones de tipo innecesarias |
+  | `whitespace` | sin líneas en blanco sobrantes al inicio o fin de bloques |
+
+- Un `//nolint` sólo con el linter explícito y el motivo: `//nolint:gosec // <por qué>`.
+  Nunca `//nolint` a secas ni desactivar un linter en `.golangci.yml` para esquivar un hallazgo.
+- Antes de cada commit: `make check` (fmt + vet + lint + test). Es lo mismo que corre el CI.
 - Contexto: **todo** método que hace I/O recibe `context.Context` como primer parámetro.
-- Nombres de tablas/columnas: **exactamente** como en `docs/DOCUMENTACION_BASE_DE_DATOS.md`
-  (español, snake_case). No traducir identificadores de la base al inglés.
+
+### Estructura de paquetes y capas
+
+```
+cmd/api/                 solo wiring: config, logger, pool, server, graceful shutdown
+internal/platform/       infra transversal (config, database, auth, httpx, async, middleware)
+internal/server/         arma el http.Server y registra las rutas de cada feature
+internal/feature/<ctx>/  un paquete por contexto de negocio (dominios de la doc de base de datos)
+    routes.go     Register(mux, deps...): monta las rutas
+    handler.go    HTTP: decodifica, valida forma, llama al service, responde
+    service.go    reglas de negocio y orquestación; encola jobs async
+    repository.go queries SQL, siempre dentro de db.WithinTx (RLS pass-through, D-02)
+    dto.go        structs de request/response (fuente de docs/ENDPOINTS.md)
+pkg/                     solo lo que deba importarse desde fuera del módulo (hoy vacío)
+```
+
+Dependencias permitidas, siempre en un solo sentido:
+`handler -> service -> repository -> platform/database`.
+
+Lo que **no** se mezcla:
+
+- **Handler:** no ejecuta SQL, no importa `pgx` y no contiene reglas de negocio. Sólo traduce
+  HTTP a una llamada al service y la respuesta a JSON.
+- **Service:** no recibe ni escribe `*http.Request` / `http.ResponseWriter`. Devuelve errores
+  de negocio como `*httpx.APIError` o como errores sentinel del paquete.
+- **Repository:** sólo acceso a datos. Sin reglas de negocio, sin armar respuestas HTTP y sin
+  queries fuera de `db.WithinTx`.
+- **`internal/platform/`:** no importa nada de `internal/feature/`.
+- **Features:** una feature no importa el repository de otra. Si necesita algo, lo pide a
+  través del service de la otra feature.
+- Los cálculos de negocio (cotización RN-01, empaquetado RN-02, score RN-05) son **funciones
+  puras sin I/O**, en su propio archivo dentro de la feature (ej. `oferta/cotizacion.go`), para
+  poder testearlas sin base. El service lee los datos y se los pasa.
+
+### Manejo de errores y logging
+
+- Al cruzar una capa, envolver con `fmt.Errorf("<operación>: %w", err)`. La operación va en
+  minúscula, en español y sin punto final: `fmt.Errorf("crear oferta: %w", err)`.
+- Comparar errores con `errors.Is` / `errors.As`. Nunca comparar el texto de `err.Error()`.
+- Errores de dominio esperables como variables sentinel `ErrXxx` en el paquete que los produce
+  (ej. `ErrNoFactible`). Lo que llega al cliente se traduce a `*httpx.APIError` con un `code`
+  estable en snake_case español (`solicitud_no_encontrada`, `pin_invalido`).
+- **Dónde se loguea:** una sola vez, en el borde.
+  - `httpx.Error` loguea los errores no tipados (que terminan en 500).
+  - El pool async loguea los jobs que fallan.
+  - `cmd/api` loguea los errores de arranque y apagado.
+- **Dónde se propaga:** services y repositories **no** loguean; devuelven el error envuelto.
+  Nunca loguear un error y además devolverlo (queda duplicado).
+- Nunca `panic` en el path de un request (el middleware `recover` lo captura, pero no es la vía
+  normal). `os.Exit` / `log.Fatal` sólo en `main`, al arrancar.
+- Logging estructurado con `log/slog`: mensaje corto en español y en minúscula, datos como pares
+  clave-valor (`"job", job.Name, "err", err`). Nunca loguear secretos ni datos sensibles: JWT,
+  PIN, tokens, credenciales ni datos de pago.
+- Al cliente nunca se le devuelve el texto de un error interno. `httpx.Error` ya responde un 500
+  genérico para cualquier error que no sea `*httpx.APIError`.
+
+### Documentación godoc
+
+- **Obligatorio** en todo paquete (comentario `// Package xxx ...`) y en todo tipo, función,
+  método, constante y variable **exportados**.
+- Idioma español, en formato godoc: la primera oración empieza con el nombre del identificador y
+  dice qué hace o qué representa (`// Register monta GET /healthz y GET /readyz ...`).
+- Lo mínimo que tiene que explicar cada comentario:
+  - **Tipos:** qué representa y, si aplica, los invariantes o el valor cero útil.
+  - **Funciones y métodos:** qué hace; los parámetros que no sean obvios; qué devuelve y en qué
+    casos devuelve error (nombrar los sentinel, ej. `ErrNoFactible`); efectos secundarios
+    (escribe en la base, encola un job, abre una transacción); y qué necesita del contexto
+    (identidad para RLS).
+  - **Reglas de negocio:** si implementa un RF/RN o una decisión, citarlo (`RN-01`, `D-14`).
+- Grupos de declaraciones: cada identificador exportado lleva su propio comentario. Un comentario
+  sobre el grupo no alcanza.
+- Los comentarios de código no exportado explican el **por qué**, no el qué.
+- Ejemplos de código dentro del comentario: indentados con tab, como en
+  `internal/platform/database`.
+- **Control:** la regla `exported` de `revive` está desactivada en `.golangci.yml`, así que el
+  lint no lo verifica. Se controla en code review: un PR con exportados sin documentar no se
+  aprueba. Deuda conocida: en `internal/platform/httpx`, `ErrorDetail` y los constructores de
+  `APIError` todavía no tienen comentario propio.
+
+### Nombres
+
+- **Paquetes:** minúscula, una sola palabra, sin guiones bajos ni plurales (`oferta`, `httpx`,
+  `async`). El paquete de una feature se llama como su dominio.
+- **Archivos:** snake_case en minúscula (`routes.go`, `cotizacion.go`, `oferta_test.go`).
+- **Identificadores:** `MixedCaps` / `mixedCaps`, sin guiones bajos. Siglas en mayúscula
+  consistente: `ID`, `URL`, `JSON`, `HTTP`, `JWT`, `RLS`, `PIN`.
+- **Idioma:** los conceptos de negocio en español, sin traducir (`Solicitud`, `Oferta`,
+  `precioCalculado`, `planificarViajes`). Los términos técnicos de Go y de infraestructura pueden
+  quedar en inglés (`Handler`, `Repo`, `Register`, `ctx`, `err`).
+- **Base de datos:** nombres de tablas/columnas **exactamente** como en
+  `docs/DOCUMENTACION_BASE_DE_DATOS.md` (español, snake_case). No traducir identificadores de la
+  base al inglés.
+- **Receptores:** una o dos letras, iguales en todos los métodos del tipo (`h`, `s`, `r`).
+- **Constructores:** `NewXxx`. **Getters:** sin prefijo `Get` (`Nombre()`, no `GetNombre()`).
+- **Interfaces:** por comportamiento (`Enqueuer`). **Errores:** sentinel `ErrXxx`, tipos
+  `XxxError`.
+- **Códigos de error de la API:** snake_case en español (`transportista_no_habilitado`).
+
+### Testing
+
+- `testing` de la stdlib; asserts e integración según D-12. Los tests viven junto al código, en
+  archivos `*_test.go` del mismo paquete.
+- **Table-driven** para toda función con más de un caso: un slice de structs con un campo
+  `name`, cada caso en un subtest `t.Run(tc.name, ...)`, y `t.Parallel()` cuando los casos no
+  comparten estado.
+- **Test obligatorio** para:
+  - toda función de cálculo de negocio (cotización RN-01, empaquetado RN-02, score RN-05,
+    cancelación con costo RN-07), con casos límite y casos de error;
+  - todo endpoint: camino feliz, validación (400 con el `code` correcto) y RLS (un usuario de
+    otro rol o dueño de otro recurso no ve ni modifica nada);
+  - todo `Validate()` de un DTO;
+  - todo bug corregido: un test que lo reproduce, antes del fix.
+- Se corren con `go test -race -count=1 ./...` (`make test`, igual que el CI).
+- Ningún test usa la base de producción `dbFletway`.
+- Un RF/RN no se marca `OK` en `docs/TRAZABILIDAD.md` sin sus tests, incluido el de RLS.
+
+### Prohibición de emojis
+
+- **Prohibido usar emojis** en código Go, comentarios, strings (mensajes, códigos de error),
+  logs, mensajes de commit, nombres de branch y archivos de documentación del repo.
+- Para estados y marcas se usa texto: `OK`, `NO`, `EN CURSO`, `N/A` (leyenda de
+  `docs/TRAZABILIDAD.md`), "Atención:", "(nuevo)".
+- Los caracteres tipográficos que no son emojis (flechas, `≥`, `·`, `—`, líneas de diagramas)
+  están permitidos.
+- Deuda conocida: los comentarios de `migrations/0001`–`0007` y la salida de
+  `scripts/pre-commit` todavía tienen símbolos de este tipo. Se corrigen en una tarea aparte.
 
 ---
 
