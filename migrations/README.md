@@ -11,7 +11,7 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 
 | Migración | Estado | Tema |
 |---|---|---|
-| `0001`–`0007` | ✅ Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
+| `0001`–`0007` | Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
 
 > El baseline del esquema actual está documentado en
 > `docs/DOCUMENTACION_BASE_DE_DATOS.md`. Si se quiere un dump SQL del baseline, se

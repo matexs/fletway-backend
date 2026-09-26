@@ -28,7 +28,7 @@ trabajo sin releer la ERS ni el código entero:
 |---------|---------------------|
 | `docs/ESTADO_PROYECTO.md` | tabla "Qué está hecho", lista "Pendientes" ordenada, "Bloqueos", bitácora con fecha absoluta |
 | `docs/DECISIONES_TECNICAS.md` | estado de cada decisión (CONFIRMADA / PROPUESTA A CONFIRMAR / ABIERTA); agregar decisiones nuevas con número D-NN |
-| `docs/TRAZABILIDAD.md` | estado real de cada RF/RN (❌ 🟡 ✅ ➖), endpoints, tablas, tests |
+| `docs/TRAZABILIDAD.md` | estado real de cada RF/RN (`NO`, `EN CURSO`, `OK`, `N/A`), endpoints, tablas, tests |
 | `docs/ENDPOINTS.md` | contrato de cada endpoint nuevo/cambiado (lo consume la app Flutter) |
 | `CLAUDE.md` | solo si cambió el rol del agente, una RN, o una convención — no es un diario |
 
@@ -62,7 +62,7 @@ trabajo sin releer la ERS ni el código entero:
 ### 4. `docs/TRAZABILIDAD.md`
 
 - Para cada RF/RN tocado: estado real, endpoint(s), tablas, tests. Usar la skill
-  `trace-requirement` para decidir ✅ vs 🟡 — **no** marcar ✅ a ojo.
+  `trace-requirement` para decidir `OK` vs `EN CURSO` — **no** marcar `OK` a ojo.
 - Actualizar "Última actualización".
 
 ### 5. `docs/ENDPOINTS.md`
@@ -83,5 +83,5 @@ convención de commits/branches, o la arquitectura de alto nivel. Si no, dejarlo
 - [ ] Fechas en formato absoluto (no "hoy", "ayer").
 - [ ] "Última actualización" al día en los archivos tocados.
 - [ ] Ninguna decisión no reversible quedó como cerrada sin confirmación humana.
-- [ ] `docs/TRAZABILIDAD.md` no tiene ✅ sin test de RLS.
+- [ ] `docs/TRAZABILIDAD.md` no tiene `OK` sin test de RLS.
 - [ ] El resumen de sesión menciona si `fletway-mobile` debe resincronizar modelos.

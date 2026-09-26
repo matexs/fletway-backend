@@ -13,13 +13,13 @@ diferencia real** (error de recuento de tablas) y algunas observaciones de advis
 
 | # | Ítem a verificar | Esperado (doc) | Real (catálogo) | Estado |
 |---|------------------|----------------|-----------------|--------|
-| 1 | Cantidad de tablas | 34 | **35** | ❌ **DIFIERE** (ver §2) |
-| 2 | RLS activo en todas las tablas | sí | 35/35 con `relrowsecurity = true`, 0 con `FORCE` | ✅ |
-| 3 | Políticas con `(select auth.uid())` | sí, nunca `auth.uid()` desnudo | 109/109 políticas usan `( SELECT auth.uid() AS uid)` | ✅ |
-| 4 | Trigger `trg_proteger_campos_transportista` | en `transportista` | `BEFORE UPDATE ... FOR EACH ROW EXECUTE fn_proteger_campos_transportista()` | ✅ |
-| 5 | Trigger `trg_proteger_campos_viaje` | en `viaje` | `BEFORE UPDATE ... FOR EACH ROW EXECUTE fn_proteger_campos_viaje()` | ✅ |
-| 6 | Sin enums de Postgres (todo `codigo`/`descripcion`) | sí | 0 enums en `public`; solo catálogos + CHECK inline | ✅ |
-| 7 | Columnas `*_snapshot` en `viaje` | ubicación + financiero + identidad congelada | 14 columnas `*_snapshot` presentes (ver §3.4) | ✅ |
+| 1 | Cantidad de tablas | 34 | **35** | **DIFIERE** (ver §2) |
+| 2 | RLS activo en todas las tablas | sí | 35/35 con `relrowsecurity = true`, 0 con `FORCE` | OK |
+| 3 | Políticas con `(select auth.uid())` | sí, nunca `auth.uid()` desnudo | 109/109 políticas usan `( SELECT auth.uid() AS uid)` | OK |
+| 4 | Trigger `trg_proteger_campos_transportista` | en `transportista` | `BEFORE UPDATE ... FOR EACH ROW EXECUTE fn_proteger_campos_transportista()` | OK |
+| 5 | Trigger `trg_proteger_campos_viaje` | en `viaje` | `BEFORE UPDATE ... FOR EACH ROW EXECUTE fn_proteger_campos_viaje()` | OK |
+| 6 | Sin enums de Postgres (todo `codigo`/`descripcion`) | sí | 0 enums en `public`; solo catálogos + CHECK inline | OK |
+| 7 | Columnas `*_snapshot` en `viaje` | ubicación + financiero + identidad congelada | 14 columnas `*_snapshot` presentes (ver §3.4) | OK |
 
 ---
 
@@ -127,9 +127,9 @@ Es una imprecisión de redacción de la doc, no un riesgo estructural; se deja a
   tabla. Coincide con doc §Dominio 6.
 
 ### 3.6 Otros
-- `usuario.email`: `citext` `UNIQUE` (extensión `citext` instalada en schema `extensions`). ✓
+- `usuario.email`: `citext` `UNIQUE` (extensión `citext` instalada en schema `extensions`). (OK)
 - PKs, UNIQUEs 1:1 (`viaje.oferta_id`, `pago.viaje_id`, `resena.viaje_id`,
-  `incidente_resolucion.incidente_id`) presentes. ✓
+  `incidente_resolucion.incidente_id`) presentes. (OK)
 - Extensiones instaladas: `citext`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault`,
   `pg_graphql`*, `plpgsql`. Sin extensiones de negocio inesperadas (PostGIS / pg_cron / pg_net solo
   *disponibles*, no instaladas). La doc no enumera extensiones → sin diferencia.
