@@ -33,14 +33,11 @@ La distancia entre la ubicación del Transportista y el origen de la Solicitud (
 
 RN-01 menciona la "demanda" como factor de precio. Este algoritmo no tiene ningún término de demanda ni tarifa dinámica: queda fuera del alcance del prototipo.
 
-### 0.4 Decisión ABIERTA — ubicación de `margen_pct`
+### 0.4 `margen_pct` = parámetro de plataforma (D-15, 2026-10-01)
 
-**No está resuelta. Este documento no la resuelve.** Hay dos alternativas:
+El margen es un **parámetro de plataforma**, en una tabla nueva `config_margen` versionada igual que las demás `config_*` (`margen_pct` 0–100). **No** es configurable por Transportista: así se evita una carrera a la baja de márgenes, contraria a la "ganancia justa" de RN-01.
 
-- (a) **Parámetro de plataforma**, versionado como el resto de la config.
-- (b) **Configurable por Transportista.** En ese caso el margen pasa a ser otra variable por la que compiten las ofertas.
-
-Según cuál se elija cambia **dónde vive** el campo de configuración. Por eso el schema **no tiene ninguna columna de configuración de margen**. Lo único que existe es el **valor aplicado** en cada oferta (`oferta.margen_pct` (nuevo)) y congelarlo en el viaje (`viaje.margen_pct_snapshot` (nuevo)). Eso sirve para cualquiera de las dos opciones. En el pseudocódigo aparece como `margenPct`, sin decir de dónde se lee.
+El valor aplicado se guarda en cada oferta (`oferta.margen_pct`) y se congela en el viaje (`viaje.margen_pct_snapshot`). La tabla `config_margen` todavía no existe: se crea en el módulo 8 (`docs/PLAN_CONSTRUCCION.md`).
 
 ---
 
@@ -73,7 +70,7 @@ INSERT viaje copiando el desglose de la oferta a columnas *_snapshot
 
 El cálculo corre **una sola vez por Oferta creada**. El resultado se guarda en `oferta` y se congela en `viaje` cuando el Cliente la acepta.
 
-> **Consecuencia de RLS que el borrador no contemplaba:** la policy real `viaje_insert` exige `cliente_id = auth.uid()`, así que el viaje lo crea **la sesión del Cliente**. Esa sesión **no puede** leer `vehiculo_costo` (nuevo), que es privada del Transportista. Por eso el snapshot de `viaje` no se recalcula: **se copia** desde las columnas de desglose de la `oferta` aceptada, (columnas agregadas en 0005).
+> **Consecuencia de RLS que el borrador no contemplaba:** la policy real `viaje_insert` exige `cliente_id = auth.uid()`, así que el viaje lo crea **la sesión del Cliente**, que **no puede** leer `vehiculo_costo` ni `oferta_costo` (privadas del Transportista). Por eso el snapshot no se recalcula: la aceptación la hace la función **`fn_aceptar_oferta`** (`SECURITY DEFINER`, D-23), que copia el desglose de `oferta_costo` a `viaje_costo`.
 
 ---
 
@@ -92,12 +89,12 @@ El cálculo corre **una sola vez por Oferta creada**. El resultado se guarda en 
 | `config_operacion` (nuevo) (vigente) | ver §4.3 | Existe (1 fila seed ilustrativa) |
 | `config_comision` (vigente) | `porcentaje` (**0–100**, numeric(5,2)) | Existe; legible por cualquier usuario autenticado desde 0007 |
 | `config_impuesto` (nuevo) (vigente) | `iva_pct` (0–100) | Existe (1 fila seed: 21 %) |
-| `margenPct` | — | **decisión abierta** (§0.4) |
+| `config_margen` (vigente) | `margen_pct` (0–100) | Se crea en el módulo 8 (D-15) |
 
 > **Diferencias con el borrador:**
 > - El borrador lista `solicitud.rango_horario` como entrada. **Esa columna no existe** y **el algoritmo no la usa** en ninguna fórmula. No se creó.
 > - Pisos, ascensor y distancia a pie **por separado para origen y destino** se agregaron en 0003 y reemplazan a `requiere_escalera` + `pisos_escalera`.
-> - Existe `solicitud.cantidad_ayudantes_solicitados`, que el borrador no menciona. El algoritmo usa `oferta.cantidad_ayudantes`, que decide el Transportista. **No está definido** si la oferta debe respetar el valor que pidió el Cliente (¿`>=`?, ¿igual?, ¿sólo informativo?). Queda abierto; este documento no lo resuelve.
+> - Existe `solicitud.cantidad_ayudantes_solicitados`, que el borrador no menciona. El algoritmo usa `oferta.cantidad_ayudantes`, que decide el Transportista. Decidido (D-20): es **informativo**; la oferta no está obligada a igualarlo. La tarjeta de oferta muestra ambos números.
 > - `config_tarifa` (el modelo de tarifa plana original) **no se usa** en este algoritmo y quedó DEPRECATED (0004).
 
 ---
@@ -229,7 +226,7 @@ func costoPorHoraAyudante(c CostoLaboral) float64 {
 
 Valores semilla **ilustrativos**, tomados del borrador (en la seed de `0004`): chofer $1.037.544,76, ayudante $963.809,78, adicionales 18 % y 16 %, viáticos $24.724,33/día, seguridad social 18 %, obra social 6 %, ART 10 %, seguro de vida $424,62/mes, 192 h/mes, 8 h/día.
 
-> **Inconsistencia interna del borrador (no resuelta):** el texto dice "alícuota de ART del empleador al **18 %**", pero la constante es `ArtPct = 0.10`. El 18 % es `ContribucionesSegSocialPct`. La seed usa **10 %**, el valor del código. Hay que confirmarlo contra la normativa vigente antes de producción.
+> **ART:** el texto del borrador dice 18 %, pero ese valor corresponde a `ContribucionesSegSocialPct`. Se adopta **10 %** (D-24), que es la constante y la seed. Si aparece una cotización real distinta, es un `UPDATE` de la fila vigente.
 >
 > **Cambio respecto del borrador:** `AguinaldoPct = 13.0/12.0 − 1.0` se reemplaza por `aguinaldoFactor = 13/12`. Es la misma matemática y no se parametriza.
 
@@ -268,7 +265,7 @@ Modelo lineal paramétrico. Respecto del documento fuente se mantienen las dos c
 // Fila vigente de config_operacion (nuevo).
 type Operacion struct {
     TiempoBaseOperacionMin float64 // tiempo_base_operacion_min (seed 10)
-    TiempoEsperaMin        float64 // tiempo_espera_min (seed 30) — reservado, no se usa
+    TiempoEsperaMin        float64 // tiempo_espera_min (seed 30) — se suma una vez por viaje (D-24)
     TiempoPorObjetoMin     float64 // tiempo_por_objeto_min (seed 2)
     TiempoPorKgMin         float64 // tiempo_por_kg_min (seed 0.01)
     TiempoPorM3Min         float64 // tiempo_por_m3_min (seed 8)
@@ -287,6 +284,7 @@ func duracionOperacion(op Operacion, v Viaje) float64 {
     pisos := o.Pisos*boolToInt(!o.AscensorUtilizable) + d.Pisos*boolToInt(!d.AscensorUtilizable)
 
     trabajoMin := op.TiempoBaseOperacionMin +
+        op.TiempoEsperaMin + // espera/acceso en el lugar, una vez por viaje (D-24)
         float64(nObjetos)*op.TiempoPorObjetoMin +
         pesoKg*op.TiempoPorKgMin +
         volumenM3*op.TiempoPorM3Min +
@@ -300,8 +298,8 @@ func duracionOperacion(op Operacion, v Viaje) float64 {
 }
 ```
 
-> - `tiempo_espera_min` se declara en la fuente, pero **ninguna fórmula lo usa**. Queda en la config como reservado. **Hay que confirmar** si debe sumarse a `trabajoMin`.
-> - **Observación sobre la fórmula de eficiencia (heredada, no corregida):** con 0,7, `1 + 0,7ⁿ·n` da 1,70 (n=1), 1,98 (n=2), 2,03 (n=3), 1,96 (n=4) y 1,84 (n=5). **A partir del 4.º ayudante la operación se vuelve más lenta**, pero el costo laboral sigue subiendo. Así que agregar ayudantes nunca abarata la oferta desde n=3. Si eso es intencional (rendimientos decrecientes), conviene dejarlo escrito; si no, hay que revisar la fórmula.
+> - `tiempo_espera_min` **se suma una vez por viaje** dentro de `trabajoMin` (D-24). Representa el tiempo de espera y acceso en el lugar.
+> - **Eficiencia de ayudantes:** con 0,7, `1 + 0,7ⁿ·n` da 1,70 (n=1), 1,98 (n=2), 2,03 (n=3) y empeora desde el 4.º ayudante. La fórmula no se toca: la oferta admite **como máximo 3 ayudantes** (D-23, 400 si se piden más), así que en el rango permitido cada ayudante siempre mejora el tiempo.
 > - Los accesos salen de `solicitud.pisos_*`, `ascensor_utilizable_*` y `distancia_vehiculo_*_m` (nuevo). Si el Cliente no los informa, los defaults son planta baja, sin ascensor y vehículo en la puerta (0 / false / 0).
 
 ### 4.4 Costo por viaje y por oferta
@@ -312,7 +310,7 @@ func calcularCostoViaje(cl CostoLaboral, v Viaje, ruta Ruta, operacionH float64)
     costoVehiculoH := costoPorHoraVehiculo(v.Vehiculo.Costo, cl.HorasMensuales)
     costoVehiculoKm := costoPorKmVehiculo(v.Vehiculo.Costo)
 
-    h := ruta.DuracionH + operacionH
+    h := ruta.DuracionH*2 + operacionH // ida y vuelta (D-24)
     km := ruta.DistanciaKm * 2 // ida y vuelta, sin tramo de acercamiento (§0.2)
 
     return costoLaborH * h, costoVehiculoH*h + costoVehiculoKm*km
@@ -344,10 +342,10 @@ func calcularCostoOferta(cl CostoLaboral, op Operacion, viajes []Viaje, ruta Rut
 > - `calcularCostoViaje` devuelve los componentes (laboral y vehículo) por separado para poder guardarlos en `oferta` y `viaje`. La suma es la misma que en el borrador.
 > - La ruta es **una sola** (`Ruta`, no `[]Ruta`). Todos los viajes de una oferta hacen el mismo origen → destino, así que `rutas[i]` del borrador sería siempre igual.
 >
-> **Ambigüedades heredadas del borrador (no resueltas, confirmar antes de implementar):**
-> 1. **`costosAdicionales` por viaje o por oferta.** El borrador lo suma **dentro del loop**, o sea N veces. Para peajes puede tener sentido (uno por ida), pero no para embalaje o grúa. El pseudocódigo de arriba lo suma **una vez por oferta**, como supuesto a validar.
-> 2. **Horas de ida contra km de ida y vuelta.** `km = DistanciaKm * 2` cobra la vuelta en kilómetros, pero `h = DuracionH + operacionH` usa sólo la duración de ida. No cobra las horas de chofer y ayudantes del regreso. ¿Es a propósito?
-> 3. **Proveedor de ruteo.** `calcularRuta()` necesita un servicio de distancia y duración (OSRM, Google, etc.). No está definido en ninguna parte del repo.
+> **Ambigüedades del borrador, resueltas (D-24, 2026-10-01):**
+> 1. **`costosAdicionales`** se suma **una vez por oferta** (embalaje, grúa). Si más adelante se modelan peajes por viaje, se separan.
+> 2. **Horas de vuelta:** se cobran. `h = DuracionH*2 + operacionH`, coherente con los km de ida y vuelta.
+> 3. **Proveedor de ruteo:** interfaz `Ruteador` (D-24) con los proveedores `google` (Google Distance Matrix, producción, se integra más adelante), `aproximado` (sólo local: línea recta × 1,3 a 30 km/h) y `fijo` (sólo tests). En producción, si la ruta no se obtiene, `calcularRuta()` devuelve `ErrRutaNoDisponible` y la oferta se rechaza con error de validación: **nunca** se estima la distancia "a ojo"; con `APP_ENV=production` y otro proveedor, el backend no arranca.
 
 ---
 
@@ -356,13 +354,14 @@ func calcularCostoOferta(cl CostoLaboral, op Operacion, viajes []Viaje, ruta Rut
 ```go
 // comisionPct: config_comision.porcentaje vigente (0–100).
 // ivaPct:      config_impuesto.iva_pct (nuevo) vigente (0–100).
-// margenPct:   DECISIÓN ABIERTA — no se define de dónde se lee (§0.4).
+// margenPct:   config_margen.margen_pct vigente (0–100), parámetro de plataforma (D-15).
 func precioNeto(costoOperativo, margenPct, comisionPct float64) float64 {
     return costoOperativo * (1 + margenPct/100) / (1 - comisionPct/100)
 }
 
+// precioFinal redondea half-up a 2 decimales una sola vez, antes de persistir (D-11).
 func precioFinal(precioNeto, ivaPct float64) float64 {
-    return precioNeto * (1 + ivaPct/100)
+    return redondear2(precioNeto * (1 + ivaPct/100))
 }
 ```
 
@@ -370,11 +369,14 @@ func precioFinal(precioNeto, ivaPct float64) float64 {
 - **Discrepancia de escala:** el borrador usa `ComisionPct = 0.15`, pero `config_comision.porcentaje` en la base es **numeric(5,2) con CHECK 0–100**, o sea 15.00. Por eso el pseudocódigo divide por 100.
 - **Permisos:** con RLS pass-through el cálculo corre con el rol del Transportista, que necesita leer la comisión vigente. Por eso la migración 0007 reemplazó la policy `config_comision_admin` (FOR ALL, sólo admin) por `config_comision_select USING (true)` + insert/update/delete sólo admin.
 - `iva_pct` supone 21 %. El tratamiento fiscal definitivo depende de la estructura jurídica de Fletway y del Transportista. Se parametriza en `config_impuesto` (nuevo), no se hardcodea.
-- **`margenPct`: decisión abierta** (§0.4). El borrador lo dejaba "global por defecto (0.00)". Acá **no** se toma esa decisión: el valor aplicado se guarda en `oferta.margen_pct` (nuevo) sin importar de dónde salga.
+- **`margenPct`:** se lee de `config_margen` vigente (D-15) y se guarda en `oferta.margen_pct`.
+- **Redondeo:** half-up a 2 decimales sólo en `precioFinal()`; los pasos intermedios no se redondean (D-11). Para no acumular error de punto flotante, la implementación puede usar un tipo decimal.
 
 ---
 
-## 6. Qué se guarda en `oferta` y en `viaje`
+## 6. Qué se guarda en `oferta`/`oferta_costo` y en `viaje`/`viaje_costo`
+
+El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23): **`oferta_costo`** (1 a 1 con `oferta`) y **`viaje_costo`** (1 a 1 con `viaje`). En `oferta` y `viaje` quedan sólo los datos que ve el Cliente: cantidad de viajes, cantidad de ayudantes y precio final. En la tabla de abajo, las filas de distancia a IVA van a `oferta_costo` y `viaje_costo` (las columnas que hoy están en `oferta` y `viaje`, de las migraciones `0005` y `0006`, se mueven en los módulos 8 y 9 de `docs/PLAN_CONSTRUCCION.md`).
 
 | Variable del algoritmo | `oferta` | `viaje` (snapshot al aceptar) |
 |---|---|---|
@@ -409,8 +411,8 @@ func precioFinal(precioNeto, ivaPct float64) float64 {
    **Atención:** A nivel base, `oferta_select` y `viaje_select` **sí** dejan al Cliente leer esas columnas (lectura directa por PostgREST). Ver §8.
 6. No calcular, escribir ni exponer ningún monto en el endpoint de creación de `solicitud`. No escribir `cotizacion_estimada_monto`.
 7. Al aceptar la oferta, el `viaje` copia el desglose de la `oferta` (§6). No lo recalcula.
-8. No implementar la fuente de `margenPct` hasta que se resuelva §0.4.
-9. Resolver antes de implementar las ambigüedades de §4.3 (`tiempo_espera_min`, eficiencia) y §4.4 (costos adicionales, horas de vuelta, proveedor de ruteo).
+8. Leer `margenPct` de `config_margen` vigente (D-15). La tabla se crea en el módulo 8.
+9. Validar `cantidad_ayudantes` entre 0 y 3 (D-23) y envolver el cálculo de viajes en un `context.WithTimeout` de 5 s (D-24).
 
 ---
 
@@ -429,16 +431,17 @@ func precioFinal(precioNeto, ivaPct float64) float64 {
 | `0007_split_policy_config_comision` | `config_comision` legible por autenticados; escritura sólo admin |
 
 **Pendientes de datos:**
-- Las 5 filas del catálogo `objeto` **no tienen dimensiones** (`largo_m/ancho_m/alto_m` en NULL). Hasta que el Administrador las cargue, esos objetos no se pueden copiar a una `solicitud_objeto`. Cuando estén cargadas: migración para `SET NOT NULL`.
-- Los valores de `config_costo_laboral`, `config_operacion` y `config_impuesto` son **ilustrativos** (los del borrador). Hay que reemplazarlos por los vigentes antes de producción. **Atención:** El borrador dice "ART al 18 %" en el texto, pero la constante es 10 %; la seed usa 10 %.
+- Las 5 filas del catálogo `objeto` **no tienen dimensiones**. La seed del módulo 0 (`docs/PLAN_CONSTRUCCION.md`) las completa y suma 23 objetos; después, migración para `SET NOT NULL`.
+- Los valores de `config_costo_laboral`, `config_operacion` y `config_impuesto` son los **valores de trabajo** para desarrollar y probar (D-24). Reemplazarlos por cifras definitivas es un `UPDATE`, no bloquea la construcción.
 
 **Limpieza posterior (DROP, no reversible, requiere confirmación aparte):** cuando el backend ya no lea lo deprecado, borrar `solicitud_objeto.volumen_unitario_m3`, `vehiculo.volumen_carga_m3`, `solicitud.requiere_escalera/pisos_escalera/cotizacion_estimada_monto`, los 6 snapshots de tarifa plana de `viaje` y la tabla `config_tarifa`. Para `viaje`, primero hay que reescribir `fn_proteger_campos_viaje` sin esas columnas y después hacer el DROP. `objeto.volumen_estimado_m3` es redundante con las dimensiones; se puede borrar una vez cargadas.
 
-**Riesgos de RLS detectados (no resueltos):**
-1. **Exposición del desglose:** `oferta_select` deja al Cliente dueño de la solicitud leer **todas** las columnas de la oferta, y `viaje_select` hace lo mismo con el viaje. Con lectura directa vía PostgREST, el Cliente vería `costo_operativo` y el desglose. Posibles mitigaciones: GRANT por columna, una tabla 1:1 separada, o aceptar que sólo la API los oculta.
-2. **Integridad de `oferta`:** `oferta_update` deja a Cliente y Transportista modificar **cualquier** columna, incluidos `precio_calculado` y el desglose. No hay trigger de protección como en `viaje`. Correspondería un `trg_proteger_campos_oferta` (patrón de `trg_proteger_campos_viaje`).
+**Riesgos de RLS:**
+1. **Integridad de `oferta`:** resuelto por diseño (D-23): trigger `trg_proteger_campos_oferta` que impide a Cliente y Transportista modificar costo, precio y FK. Se crea en el módulo 8.
+2. **Lectura del desglose por el Cliente:** resuelto (D-23): el desglose vive en `oferta_costo` y `viaje_costo`, con RLS sólo para el Transportista y el Administrador. Se crean en los módulos 8 y 9.
 
-**Decisiones abiertas:**
-- Ubicación de `margen_pct` (§0.4).
-- Relación entre `solicitud.cantidad_ayudantes_solicitados` y `oferta.cantidad_ayudantes` (§2).
-- Ambigüedades de fórmula de §4.3 y §4.4.
+**Decisiones (2026-10-01):**
+- `margen_pct`: parámetro de plataforma (D-15).
+- `solicitud.cantidad_ayudantes_solicitados` es **informativo**; no obliga a la oferta (D-20).
+- Ambigüedades de §4.3 y §4.4: resueltas (D-24).
+- Sin puntos abiertos: el desglose queda oculto al Cliente con `oferta_costo`/`viaje_costo` (D-23).
