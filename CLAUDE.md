@@ -2,7 +2,8 @@
 
 > Contexto persistente del repo. Cualquier sesión de Claude Code debe poder arrancar
 > leyendo **solo este archivo** + `docs/ESTADO_PROYECTO.md` + `docs/DECISIONES_TECNICAS.md`,
-> sin releer la ERS entera.
+> sin releer la ERS entera. Para construir, el orden de trabajo y lo que pide cada módulo están
+> en **`docs/PLAN_CONSTRUCCION.md`**.
 
 ---
 
@@ -35,7 +36,8 @@ Lo que **no** hacés acá:
 
 Fletway es un **marketplace two-sided de fletes y mudanzas**. El **Cliente** publica una
 `solicitud` de traslado (**sin cotización estimada**: no se muestra ningún monto al publicar)
-y el sistema notifica a los **Transportistas** compatibles por zona/vehículo/disponibilidad.
+y el sistema avisa (in-app en esta etapa) a los **Transportistas** compatibles por
+zona/vehículo/disponibilidad.
 Cada Transportista habilitado se **postula** voluntariamente con una `oferta` (modelo *pull*,
 sin asignación forzada), cuyo precio calcula el sistema con su vehículo y ayudantes reales.
 El Cliente ve un **top 3 por score de recomendación** y elige una: se confirma un `viaje`
@@ -49,18 +51,18 @@ sin acción). El chat entre Cliente y Transportista se habilita **solo tras conf
 
 ## 3. Reglas de negocio críticas — NO violar
 
-Fuente: `docs/ERS_Fletway.pdf` §3.2. Todo endpoint que las toque debe respetarlas y
+Fuente: `docs/ERS_Fletway.docx` §3.2. Todo endpoint que las toque debe respetarlas y
 declararlo en `docs/TRAZABILIDAD.md`.
 
 | RN | Qué exige | Dónde impacta en el backend |
 |----|-----------|------------------------------|
-| **RN-01** | Precio **automático** del servicio en función de distancia, tiempo, cantidad de viajes, peso/volumen, demanda, escalera/altura, ayudantes y tarifa base. Diseño que priorice **ganancia justa** para el Transportista. **Decisión de producto:** sólo se calcula el precio de cada oferta (RF-17); **no hay cotización estimada** en RF-06. | Servicio de cotización al crear la `oferta` (`docs/ALGORITMO_COTIZACION.md`). El Cliente **no** ingresa precio. Costo operativo real (laboral + vehículo) + margen + comisión + IVA. `config_tarifa` queda **deprecada**. Sin demanda ni tramo de acercamiento. Ubicación de `margen_pct`: **abierta**. |
+| **RN-01** | Precio **automático** del servicio en función de distancia, tiempo, cantidad de viajes, peso/volumen, demanda, escalera/altura, ayudantes y tarifa base. Diseño que priorice **ganancia justa** para el Transportista. **Decisión de producto:** sólo se calcula el precio de cada oferta (RF-17); **no hay cotización estimada** en RF-06. | Servicio de cotización al crear la `oferta` (`docs/ALGORITMO_COTIZACION.md`). El Cliente **no** ingresa precio. Costo operativo real (laboral + vehículo) + margen + comisión + IVA. `config_tarifa` queda **deprecada**. Sin demanda ni tramo de acercamiento. Margen de plataforma en `config_margen` (D-15); ajustes de fórmula en D-24. |
 | **RN-02** | Cantidad de viajes y cubicaje calculados **automáticamente** por el sistema. La ERS lo plantea por `tipo_vehiculo` al publicar; **en el diseño actual se calcula sobre el `vehiculo` real al ofertar** (ver §7 de `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`). | `planificarViajes` con boxpacker3 **v2** (`github.com/bavix/boxpacker3/v2`), greedy de una pasada: **estimativo para el precio, no el mínimo de viajes**. Si la carga no entra → error de validación, sin oferta. |
 | **RN-03** | La plataforma cobra **comisión sobre cada pago** procesado entre Cliente y Transportista. | Servicio de pagos. `config_comision` **vigente**; el % se congela en `viaje.porcentaje_comision_snapshot`. |
 | **RN-04** | Matchmaking **por localidad**: emparejar `solicitud` con Transportistas cuya zona de trabajo coincida con **origen o destino**. | Query de matching sobre `transportista_zona` + `solicitud.origen_zona_id`/`destino_zona_id`. Sin ensanchamiento de radio ni ventanas de tiempo (descartado, ver doc DB §6). |
-| **RN-05** | Postulación **pull** con **notificación push proactiva** al publicar; el Transportista se postula si quiere (sin obligación). Al Cliente se le muestra un **top 3 por score** (precio + calificación + cercanía + tasa de cumplimiento), con opción "ver más". | Job async de notificación (RNF-02) + endpoint de listado de ofertas que devuelve top 3 ordenado por score. |
-| **RN-06** | Verificación por **PIN + geolocalización**: se genera un PIN por viaje; el Transportista carga PIN al **llegar a cargar** y un **segundo PIN al finalizar**; se registra su ubicación GPS. Con **PIN de fin válido** se habilita la `resena` del Cliente (RF-12). | Endpoints de ejecución de viaje (RF-22). `resena` solo si `viaje` en estado que la ERS/doc DB fija como habilitante. |
-| **RN-07** | Cancelación con costo: Cliente cancela **sin cargo** si el Transportista **no salió**; **con cargo de resarcimiento** si ya salió (RF-08). El Transportista que cancela (RF-19) **no** paga penalización económica, pero baja su `tasa_cumplimiento`. | Endpoints de cancelación (RF-08, RF-19). |
+| **RN-05** | Postulación **pull** con aviso proactivo al publicar; el Transportista se postula si quiere (sin obligación). Al Cliente se le muestra un **top 3 por score** (precio + calificación + tasa de cumplimiento; **sin cercanía**, enmienda D-25), con opción "ver más". | Job async que crea la notificación **in-app** (push fuera de esta etapa, D-22) + endpoint de ofertas con top 3 según `docs/ALGORITMO_SCORE.md`. |
+| **RN-06** | Verificación por **PIN + geolocalización**: se genera un PIN por viaje; el Transportista carga PIN al **llegar a cargar** y un **segundo PIN al finalizar**; se registra su ubicación GPS. Con **PIN de fin válido** se habilita la `resena` del Cliente (RF-12). | Endpoints de ejecución de viaje (RF-22). `resena` solo si `viaje` en estado que la ERS/doc DB fija como habilitante. El **Transportista nunca ve el PIN**: se lo pide al Cliente al empezar y al terminar (D-26). |
+| **RN-07** | Cancelación con costo: Cliente cancela **sin cargo** si el Transportista **no salió**; **con cargo de resarcimiento** si ya salió (RF-08). El Transportista que cancela (RF-19) **no** paga penalización económica, pero baja su `tasa_cumplimiento`. | Endpoints de cancelación (RF-08, RF-19). "Salió" = `viaje.salio_en`; cargo del 20 % del precio (D-27). |
 | **RN-08** | Catálogo de **objetos comunes** (`objeto`) con peso/volumen estimados, seleccionables al publicar la solicitud (RF-06) y usados en la cotización (RN-01, RN-02). También se admite carga manual con dimensiones propias. | `solicitud_objeto` soporta `objeto_id` (catálogo) **o** `nombre_personalizado`; en ambos casos guarda peso + largo/ancho/alto + flags de rotación/apilado. |
 
 > **Schema de cotización (aplicado el 2026-09-24, `migrations/0001`–`0007`):** dimensiones en
@@ -72,7 +74,7 @@ Requisitos no funcionales que condicionan **toda** decisión de arquitectura:
 
 - **RNF-01** — JWT obligatorio en **todos** los endpoints (Cliente y Transportista).
 - **RNF-02** — Backend **asíncrono y concurrente**: tareas en segundo plano (notificaciones
-  push, recálculos, side-effects de pagos) **no** bloquean el request principal.
+  in-app, recálculos, side-effects de pagos) **no** bloquean el request principal.
 - **RNF-03** — 3FN estricta en tablas maestras; **snapshot histórico** intencional en `viaje`.
 - **RNF-04** — Mínima carga de decisión para el Cliente (precio automático, top 3).
 
@@ -86,14 +88,20 @@ Requisitos no funcionales que condicionan **toda** decisión de arquitectura:
   `SET LOCAL request.jwt.claims = '<claims del JWT del usuario>'` dentro de la transacción,
   de modo que **las políticas RLS ya desplegadas (127 en 39 tablas al 2026-09-24) siguen
   siendo la capa de seguridad efectiva**. El backend agrega lógica de negocio y orquestación encima, no la reemplaza.
-- **Auth:** se verifica el JWT emitido por Supabase Auth (GoTrue). `auth.uid()` = `usuario.id`.
+- **Auth:** **Supabase Auth** (D-04). El backend verifica el JWT ES256 contra el JWKS del
+  proyecto, sin HS256. `auth.uid()` = `usuario.id`. El rol sale de `usuario.rol` vía `GET /api/me`
+  (D-18).
+- **Entornos (D-16):** sólo **local** (Supabase CLI) y **producción** (`dbFletway` + Render). Sin
+  staging. Ningún test ni desarrollo usa `dbFletway`.
+- **Rutas:** negocio bajo `/api`; montos como decimal con 2 posiciones (D-11).
 - **Async (RNF-02):** pool de workers en proceso (`internal/platform/async`) para jobs
   disparados desde los handlers (ej. notificar Transportistas al publicar solicitud).
 - **Capas por feature:** `internal/feature/<ctx>/` con `routes.go` + `handler.go` +
   `service.go` + `repository.go`. Infra compartida en `internal/platform/`.
 
-> **Atención:** Varias de estas decisiones están marcadas **"propuesta a confirmar"** en
-> `docs/DECISIONES_TECNICAS.md`. No las trates como cerradas hasta que el humano las confirme.
+> Todas las decisiones de arquitectura están **confirmadas** (2026-10-01), incluidos los puntos
+> A-1 a A-7 de `docs/PLAN_CONSTRUCCION.md` §1.1. Si aparece algo que no esté decidido, no lo
+> resuelvas por tu cuenta: consultá.
 
 ---
 

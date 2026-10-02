@@ -3,7 +3,7 @@
 > Foto viva del avance. Actualizar al cerrar cada bloque de trabajo (skill
 > `update-project-state`). Fechas en formato absoluto.
 
-**Última actualización:** 2026-09-26 · **Etapa:** diseño de cotización y cálculo de viajes cerrado + esquema migrado + convenciones de código definidas
+**Última actualización:** 2026-10-01 · **Etapa:** definiciones cerradas, listo para construir (ver `docs/PLAN_CONSTRUCCION.md`)
 
 ---
 
@@ -25,7 +25,7 @@ implementados.
 | Diseño de cotización (RN-01) y cálculo de viajes (RN-02) | Documentado | `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`. Sin cotización estimada al publicar: el único precio es el de cada oferta. Viajes estimados con `bavix/boxpacker3/v2` (greedy). Pseudocódigo de empaquetado compilado y probado contra la v2 en un prototipo descartable. |
 | Convenciones de código | Definidas (2026-09-26) | `CLAUDE.md` §5: estilo y golangci-lint, estructura de paquetes y capas, errores y logging, godoc obligatorio, nombres, testing y prohibición de emojis. Sin emojis en ningún archivo versionado. |
 | Versión de Go | Unificada en 1.27 (2026-09-26) | `go.mod` y CI en **1.27**; golangci-lint v2.13.2. |
-| ERS | Cerrada | 24 RF, 8 RN, 4 RNF, 5 RI. `docs/ERS_Fletway.pdf`. |
+| ERS | Cerrada | 24 RF, 8 RN, 4 RNF, 5 RI. `docs/ERS_Fletway.docx`. |
 | Estructura del repo Go | Scaffolding | `cmd/`, `internal/platform/`, `internal/feature/`, `migrations/`, `qa/`, `docs/`. |
 | Archivos de contexto | Hecho | `CLAUDE.md`, este archivo, `DECISIONES_TECNICAS.md`, `TRAZABILIDAD.md`, `ENDPOINTS.md`, `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`. |
 | Skills de Claude Code | Hecho | `supabase-migration`, `trace-requirement`, `scaffold-endpoint`, `rls-policy-review`, `update-project-state`. |
@@ -59,20 +59,20 @@ implementados.
    - Cargar dimensiones en las 5 filas de `objeto` y después `SET NOT NULL`.
    - Riesgos de RLS en `oferta` (lectura del desglose por el Cliente; UPDATE sin trigger de protección).
    - DROP posterior de lo deprecado (`config_tarifa`, snapshots de tarifa plana, etc.).
-3. **Confirmar las decisiones marcadas "propuesta a confirmar"** en
-   `docs/DECISIONES_TECNICAS.md` (acceso a datos, router, verificación de JWT, módulo Go,
-   estrategia de jobs async, pasarela de pagos).
-4. `go mod tidy` + fijar versiones de `pgx`, lib de JWT, `github.com/bavix/boxpacker3/v2@v2.0.0`, etc.
-5. Implementar `internal/platform/auth` (verificación real del JWT de Supabase) y
-   `internal/platform/database` (pool + helper de RLS pass-through).
-6. Primer endpoint de negocio real con la skill `scaffold-endpoint` — candidato:
-   **RF-05 (registro de Cliente)** o **RF-16 (registro de Transportista)**.
-7. Colección Postman base en `qa/postman/` y primeros casos de prueba en `qa/casos-prueba/`.
-8. Completar el godoc del código existente que no lo tiene (deuda anotada en `CLAUDE.md` §5, por
-   ejemplo `ErrorDetail` y los constructores de `internal/platform/httpx`). El lint no lo
-   verifica; se controla en code review.
-9. Avisar al equipo que el módulo volvió a Go 1.27. Quien tenga Go 1.24 instalado recibe el
-   toolchain 1.27 automáticamente (`GOTOOLCHAIN=auto`).
+3. ~~**Definir lo que faltaba para construir.**~~ **Hecho 2026-10-01.** Las 61 preguntas de
+   `PENDIENTES_ANTES_DE_CONSTRUIR` quedaron resueltas con las soluciones acordadas por el equipo:
+   decisiones D-03 a D-31 confirmadas en `docs/DECISIONES_TECNICAS.md`, score en
+   `docs/ALGORITMO_SCORE.md` y orden de trabajo en `docs/PLAN_CONSTRUCCION.md`. Los puntos de
+   la lista anterior quedan cubiertos por el plan.
+4. ~~**Resolver los puntos A-1 a A-7**~~ **Hecho 2026-10-01** (`docs/PLAN_CONSTRUCCION.md` §1.1).
+5. **Setup** (`PLAN_CONSTRUCCION.md` §1.2): Supabase local con el schema base, credenciales
+   locales, branch protection en GitHub, primer Administrador. El despliegue a producción no es
+   parte de esta etapa.
+6. **Construir los módulos 0 a 14** en el orden de `docs/PLAN_CONSTRUCCION.md` §4. Empieza por el
+   módulo 0 (seeds) y el módulo 1 (plataforma: `pgx`, JWT, módulo `github.com/matexs/fletway-backend`).
+7. Completar el godoc del código existente que no lo tiene (deuda de `CLAUDE.md` §5, por ejemplo
+   `ErrorDetail` y los constructores de `internal/platform/httpx`).
+8. Avisar al equipo que el módulo volvió a Go 1.27 (`GOTOOLCHAIN=auto` descarga el toolchain).
 
 ---
 
@@ -89,13 +89,11 @@ implementados.
   Intencional como helpers de RLS; revisar en el bloque de hardening antes de exponer la app.
 - **Toolchain:** `go` 1.27.1 disponible; `flutter` NO (no afecta a este repo). El módulo y el CI
   usan **Go 1.27** (ver bitácora 2026-09-26).
-- Faltan credenciales reales de la pasarela de pagos (Mercado Pago / Stripe) — RI-03.
-- Valores de `config_costo_laboral`, `config_operacion`, `config_impuesto` y `config_comision`
-  son **ilustrativos**; hay que cargar los reales antes de cualquier cálculo que se dé por válido
-  (RN-01, RN-03). **Atención:** Confirmar la ART: el texto del documento fuente dice 18 %, la constante 10 %
-  (la seed usa 10 %). `config_tarifa` está deprecada.
-- Las 5 filas del catálogo `objeto` no tienen dimensiones: bloquea usar el catálogo al publicar
-  solicitudes (RF-06) hasta que se carguen.
+- Faltan las credenciales del sandbox de Mercado Pago (D-09) — se necesitan recién en el módulo 12.
+- Los valores de `config_*` son los **valores de trabajo** para desarrollar y probar (D-24); cambiarlos
+  por cifras definitivas es un `UPDATE`, no bloquea. ART adoptada: 10 %. `config_tarifa` está deprecada.
+- Las 5 filas del catálogo `objeto` no tienen dimensiones: las completa la seed del módulo 0
+  (`PLAN_CONSTRUCCION.md` §2.2), junto con 23 objetos y 14 zonas piloto.
 - ~~`fletway-mobile/docs/API_CONTRATOS.md` definía `POST /solicitudes` → `CotizacionEstimada`~~ →
   resuelto 2026-09-26 en `fletway-mobile` (PR #1): el contexto de la app ya no tiene cotización
   estimada.
@@ -115,3 +113,5 @@ implementados.
 | 2026-09-26 | Versión de Go unificada en **1.27** (`go.mod` y `.github/workflows/ci.yml`; estaban en 1.24 desde `4cb404b`, mientras el README decía 1.27+ y boxpacker3 v2 pide 1.25 o más). Causa de la baja original: la corrida de `454d68b` falló porque golangci-lint **v1.64.8** está compilado con Go 1.24 y no acepta un módulo 1.27. Ya no aplica: el CI usa golangci-lint **v2.13.2**, compilado con Go 1.27.0. Verificado localmente con ese binario exacto: 0 issues; `gofmt`, `go vet`, `go build` y `go test -race` OK. PR #2. |
 | 2026-09-26 | Convenciones de código en `CLAUDE.md` §5 (estilo y lint, capas, errores y logging, godoc, nombres, testing, prohibición de emojis). Emojis reemplazados por texto en toda la documentación: los estados de `TRAZABILIDAD.md` pasan a `NO` / `EN CURSO` / `OK` / `N/A`, también en las skills. PR #2 (junto con Go 1.27) mergeado; CI de `main` verde. |
 | 2026-09-26 | Emojis quitados de los comentarios de `migrations/0001`–`0007` y de la salida de `scripts/pre-commit` (sólo comentarios: el SQL aplicado en `dbFletway` no cambia; verificado que la base no tiene emojis). PR #3 mergeado; CI de `main` verde. No quedan ramas secundarias. |
+| 2026-10-01 | Definiciones para empezar la construcción: se incorporaron las soluciones acordadas por el equipo a los 61 pendientes. `DECISIONES_TECNICAS.md`: D-03 a D-12 confirmadas, D-09 Mercado Pago, D-15 margen de plataforma (`config_margen`) y nuevas D-16 a D-31 (entornos local y producción, alcance de la etapa, alta y rol, Storage, solicitud con republicación, matchmaking, notificaciones in-app, oferta, ajustes de precio, score sin cercanía, PIN que sólo ve el Cliente, cancelaciones, pagos, reputación, veto y proceso). Nuevos `ALGORITMO_SCORE.md` y `PLAN_CONSTRUCCION.md`; actualizados `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`, `ENDPOINTS.md` (rutas bajo `/api`), `TRAZABILIDAD.md` (enmiendas a la ERS), `CLAUDE.md` y `README.md`. Sin cambios en la base. |
+| 2026-10-01 | Resueltos los puntos A-1 a A-7: `tipo_vehiculo` con 6 tipos y medidas estándar de referencia (D-32), color primario `#C36224` con secundarios grises y fondo blanco, Render a priori y esta etapa sólo local (D-16), desglose en `oferta_costo`/`viaje_costo` con `fn_aceptar_oferta` (D-23), PIN en `viaje_pin` con `fn_validar_pin` (D-26), proveedores de ruteo `google`/`aproximado`/`fijo` (D-24). ERS corregida: `docs/ERS_Fletway.docx` sin cercanía y con el anexo "Registro de cambios"; el `.docx` reemplaza al PDF en el repo. |
