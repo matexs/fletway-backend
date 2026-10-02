@@ -13,12 +13,12 @@ esta etapa.
 | Pieza | Elección |
 |-------|----------|
 | Lenguaje | Go 1.27+ |
-| HTTP | `net/http` `ServeMux` (Go 1.22+ routing) — *propuesta a confirmar* |
+| HTTP | `net/http` `ServeMux` (Go 1.22+ routing), rutas de negocio bajo `/api` |
 | Base de datos | Postgres 17 en **Supabase** (`dbFletway`), 39 tablas, RLS activo en todas |
 | Acceso a datos | `pgx` / `pgxpool` directo, con **RLS pass-through** (el JWT del usuario viaja a la sesión de Postgres) |
-| Auth | JWT de Supabase Auth (GoTrue) |
+| Auth | Supabase Auth; el backend verifica el JWT ES256 vía JWKS |
 | Async | pool de workers in-process (RNF-02) |
-| Pagos | Mercado Pago / Stripe — *sin decidir* (RI-03) |
+| Pagos | Mercado Pago (D-09; RI-03) |
 
 Detalle y estado de cada decisión: [`docs/DECISIONES_TECNICAS.md`](docs/DECISIONES_TECNICAS.md).
 
@@ -49,11 +49,13 @@ docs/                     ERS, doc de base de datos, estado, decisiones, trazabi
 
 | Documento | Contenido |
 |-----------|-----------|
-| [`docs/ERS_Fletway.pdf`](docs/ERS_Fletway.pdf) | Especificación de requisitos (24 RF, 8 RN, 4 RNF, 5 RI). |
+| [`docs/ERS_Fletway.docx`](docs/ERS_Fletway.docx) | Especificación de requisitos (24 RF, 8 RN, 4 RNF, 5 RI). |
 | [`docs/DOCUMENTACION_BASE_DE_DATOS.md`](docs/DOCUMENTACION_BASE_DE_DATOS.md) | Esquema real desplegado, dominio por dominio, con RLS. |
 | [`docs/ESTADO_PROYECTO.md`](docs/ESTADO_PROYECTO.md) | Foto viva del avance. |
 | [`docs/DECISIONES_TECNICAS.md`](docs/DECISIONES_TECNICAS.md) | Decisiones de arquitectura y su estado. |
 | [`docs/TRAZABILIDAD.md`](docs/TRAZABILIDAD.md) | Matriz RF/RN → implementación. |
+| [`docs/PLAN_CONSTRUCCION.md`](docs/PLAN_CONSTRUCCION.md) | Orden de construcción módulo a módulo y lo que pide cada uno. |
+| [`docs/ALGORITMO_COTIZACION.md`](docs/ALGORITMO_COTIZACION.md), [`ALGORITMO_VIAJES_EMPAQUETADO.md`](docs/ALGORITMO_VIAJES_EMPAQUETADO.md), [`ALGORITMO_SCORE.md`](docs/ALGORITMO_SCORE.md) | Precio, cantidad de viajes y score del top 3. |
 | [`docs/ENDPOINTS.md`](docs/ENDPOINTS.md) | Contrato de API (fuente para los modelos del cliente Flutter). |
 | [`CLAUDE.md`](CLAUDE.md) | Contexto para agentes de Claude Code. |
 

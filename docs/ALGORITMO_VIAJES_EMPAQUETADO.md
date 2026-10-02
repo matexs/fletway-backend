@@ -103,9 +103,9 @@ packer := boxpacker3.NewPacker(
 |---|---|
 | `NewGreedy(OrderDecreasing, SelectFirstFit)` | Rápido y con buen resultado (§6). La selección por defecto (`SelectFullestBox`) da los mismos viajes y tarda parecido; `SelectFirstFit` es más simple de explicar. |
 | `WithFinishers()` vacío | La post-optimización por defecto no cambia la cantidad de viajes y en cargas grandes multiplica el tiempo por más de 20. |
-| `MinSupportRatio: 0.6` | Evita estimaciones con objetos flotando. El valor es un criterio de razonabilidad, no una norma. Puede pasar a `config_operacion` si se quiere ajustar sin recompilar (hoy no es una columna). |
+| `MinSupportRatio: 0.6` | Evita estimaciones con objetos flotando. El valor es un criterio de razonabilidad, no una norma. Queda **fijo en el código** (D-24): no se agrega a `config_operacion` hasta que el uso real muestre que hace falta ajustarlo. |
 | **No** usar `NewSearch` ni `NewPortfolio` | Más lentos. En la prueba, `NewSearch(128, 3)` dio peor resultado que el greedy (5 viajes contra 4) y no respetó el límite de tiempo. |
-| **No** usar `WithBudget` | No es confiable (§1). El límite de tiempo se pone con el `context.Context` del request: el greedy revisa el contexto por cada ítem y devuelve error si vence. Esto último no se midió. |
+| **No** usar `WithBudget` | No es confiable (§1). El límite de tiempo es un `context.WithTimeout` de **5 s** alrededor de `planificarViajes` (D-24), holgado sobre el peor caso medido (2,5 s con 400 unidades). El greedy revisa el contexto por cada ítem y devuelve error si vence. |
 
 ---
 
@@ -284,13 +284,13 @@ Algunas observaciones:
 - En el furgón con restricciones, los roperos quedaron afuera por `ReasonNoOrientationFits` (1,90 m de alto parado contra 1,70 m del furgón) y se excluyen de la cota. Por eso esas filas tendrían `ErrNoFactible` en uso real. Se midieron igual para ver el tiempo.
 - La v1.3.2 con la misma carga estimaba **7 viajes** para el furgón con 100 unidades y **10** para el camión con 400. La v2 estima 4 y 5, mucho más cerca de la cota. Como la cantidad de viajes multiplica el costo, esto hace el precio bastante más realista.
 - Una **mudanza típica (50–100 unidades) tarda menos de 0,2 s.** Entre 200 y 400 unidades, de 0,4 a 2,5 s. El cálculo corre **una vez por oferta**, no por consulta.
-- **Abierto (no decidido):** si conviene un **tope de unidades por solicitud** para acotar el peor caso. No se propone ningún valor.
+- **Peor caso acotado (D-24):** no hay tope de unidades por solicitud. El peor caso lo acotan la cota rápida del paso 1 de §4 (rechaza al instante cargas que necesitan más de 20 viajes), `maxViajes = 20` y el timeout de 5 s.
 
 ---
 
 ## 7. RN-02 y `tipo_vehiculo`
 
-> **Diferencia con la ERS:** la ERS describe RN-02 como un cálculo **por `tipo_vehiculo` al publicar la solicitud**. Este algoritmo corre **por `vehiculo` real, al ofertar** (decisión D-14, reflejada en `CLAUDE.md`, `TRAZABILIDAD.md` y `DOCUMENTACION_BASE_DE_DATOS.md`). `tipo_vehiculo` sólo tiene `volumen_estandar_m3` y `peso_maximo_estandar_kg`, **sin dimensiones**, así que no se le puede aplicar el empaquetado 3D. Si se mantiene algún chequeo interno por tipo, sólo puede usar la cota de peso y volumen del paso 1 de §4. No se proponen dimensiones para `tipo_vehiculo`: queda abierto.
+> **Diferencia con la ERS:** la ERS describe RN-02 como un cálculo **por `tipo_vehiculo` al publicar la solicitud**. Este algoritmo corre **por `vehiculo` real, al ofertar** (decisión D-14, reflejada en `CLAUDE.md`, `TRAZABILIDAD.md` y `DOCUMENTACION_BASE_DE_DATOS.md`). `tipo_vehiculo` sólo tiene `volumen_estandar_m3` y `peso_maximo_estandar_kg`, **sin dimensiones**, así que no se le puede aplicar el empaquetado 3D. Si se mantiene algún chequeo interno por tipo, sólo puede usar la cota de peso y volumen del paso 1 de §4. La misma cota rápida es la que usa el matchmaking para decidir si un Transportista es compatible (D-21), aplicada sobre sus **vehículos reales activos**, no sobre `tipo_vehiculo`. `tipo_vehiculo` suma largo, ancho y alto **estándar** sólo como referencia para proponer medidas al registrar un vehículo (D-32); el algoritmo nunca las usa.
 
 ---
 
@@ -302,7 +302,7 @@ Algunas observaciones:
 4. Respetar el mapeo de ejes: `Width` = largo, `Height` = ancho, **`Depth` = alto (vertical)**. Invertirlo hace que `rotacion_vertical` y `apilable` se apliquen sobre el eje equivocado.
 5. Usar exactamente la configuración de §3: greedy de una pasada, `WithFinishers()` vacío y `MinSupportRatio: 0.6`. No `NewSearch`, no `NewPortfolio`, no `WithBudget`.
 6. Aplicar la cota rápida por peso y volumen **antes** de llamar a la librería.
-7. Poner un límite de tiempo con el `context.Context` del request (`context.WithTimeout`) y devolver un error claro si vence. El valor del límite no está definido.
+7. Envolver `planificarViajes` en un `context.WithTimeout` de **5 s** (D-24) y devolver un error de validación claro si vence.
 8. Loguear cuando la carga tenga `rotacion_horizontal = false` con `rotacion_vertical = true` (el único caso informativo), dejando escrito que esa restricción no se aplicó.
 9. Loguear `result.Report.Bound.Boxes` junto a `len(viajes)`, para poder evaluar la calidad de la estimación en la memoria del TFG.
 10. Definir `ErrNoFactible` como un error de dominio explícito que incluya el motivo por objeto, nunca un `panic` ni un `nil` silencioso.

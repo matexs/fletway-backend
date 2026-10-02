@@ -19,7 +19,7 @@ description: >-
 
 ## Insumos
 
-- `docs/ERS_Fletway.pdf` — texto del requisito (4 campos: descripción, entradas,
+- `docs/ERS_Fletway.docx` — texto del requisito (4 campos: descripción, entradas,
   proceso, salida; o el enunciado de la RN).
 - `docs/TRAZABILIDAD.md` — estado declarado.
 - Código en `internal/feature/<ctx>/`.
@@ -68,7 +68,7 @@ RN acá. Chequeos frecuentes:
   **congela** en `viaje.porcentaje_comision_snapshot`.
 - **RN-04:** el matching compara zona del transportista contra **origen o
   destino** de la solicitud, vía `transportista_zona`. Sin ensanchamiento de radio.
-- **RN-05:** la notificación push es un **job async** (no bloquea el POST de la
+- **RN-05:** el aviso a Transportistas (in-app en esta etapa, D-22) es un **job async** (no bloquea el POST de la
   solicitud); el listado al Cliente devuelve **top 3 por score**.
 - **RN-06:** dos PIN (inicio y fin) + registro de ubicación; la `resena` se
   habilita recién con PIN de fin válido.
