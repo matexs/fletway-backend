@@ -4,19 +4,21 @@
 > La skill `sync-api-models` del repo mobile lee este archivo para mantener los modelos
 > Dart en sincronía. Cuando agregues o cambies un endpoint, actualizá acá **primero**.
 
-**Base URL (dev):** `http://localhost:8080`
+**Base URL:** local `http://localhost:8080`; producción, la URL de Render (D-16). Las rutas de negocio van bajo **`/api`** (D-11); los health checks, en la raíz.
 **Versión de contrato:** `v0` (draft — nada implementado todavía)
-**Última actualización:** 2026-09-24
+**Última actualización:** 2026-10-01
 
 ---
 
 ## Convenciones
 
 - Todos los endpoints de negocio requieren header `Authorization: Bearer <JWT de Supabase>`
-  (RNF-01). Excepción: `/healthz`, `/readyz`.
+  (RNF-01). Excepciones: `/healthz`, `/readyz` y el webhook de Mercado Pago (D-28, protegido por
+  firma).
 - Content-Type `application/json` en request y response.
 - Identificadores: `uuid` string. Timestamps: ISO-8601 UTC (`2026-09-07T14:03:00Z`).
-- Montos: número entero en centavos, o decimal string — **a definir en D-11**.
+- Montos: número JSON decimal con **2 posiciones** (no string, no centavos), redondeado half-up
+  una sola vez al calcular el precio final (D-11).
 - Nombres de campos: se exponen tal como en la base (español, snake_case) salvo decisión
   explícita en contrario, para no introducir una capa de traducción propensa a errores.
 - Error envelope:
@@ -40,27 +42,41 @@ Readiness (incluye ping a la base). Sin auth. `200 {"status":"ready","db":"ok"}`
 
 ## Endpoints planificados (no implementados)
 
-> Se completan a medida que se implementan, con la skill `scaffold-endpoint`.
-> Mapa RF → endpoint (borrador, sujeto a D-11):
+> Se completan a medida que se implementan, con la skill `scaffold-endpoint`, siguiendo el orden
+> de `docs/PLAN_CONSTRUCCION.md` (columna "Mód."). Todas las rutas llevan el prefijo `/api`.
 
-| RF/RN | Método + path (propuesto) | Rol | Notas |
-|-------|---------------------------|-----|-------|
-| RF-05 | `POST /auth/registro/cliente` | público→Cliente | crea `usuario` + `cliente`; delega credenciales a Supabase Auth |
-| RF-16 | `POST /auth/registro/transportista` | público→Transportista | crea `usuario` + `transportista` (estado `pendiente`) + carga docs |
-| RF-18 | `POST /transportista/vehiculos` | Transportista | alta de `vehiculo` (con `largo_util_m`/`ancho_util_m`/`alto_util_m`) + su fila en `vehiculo_costo` (privada) |
-| RF-06 | `POST /solicitudes` | Cliente | crea `solicitud` (acceso por origen/destino) + `solicitud_objeto` (copia peso, dimensiones y flags de rotación/apilado); **no calcula ni devuelve monto** (sin cotización estimada); dispara push async (RN-05) |
-| RF-06 | `GET /catalogo/objetos` | autenticado | catálogo RN-08 |
-| RF-17 / RN-04 | `GET /transportista/solicitudes` | Transportista | solicitudes compatibles por zona/vehículo |
-| RF-17 / RN-01 / RN-02 | `POST /solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes`. Calcula viajes y precio (`docs/ALGORITMO_*.md`) y guarda `oferta` con desglose. Si la carga no entra en el vehículo → error de validación (envelope D-11, código HTTP a definir) con el motivo por objeto, sin oferta |
-| RF-07 / RN-05 | `GET /solicitudes/{id}/ofertas` | Cliente | **top 3 por score**, `?ver_mas=true` para el resto. Al Cliente sólo se le expone `precio_calculado`, nunca el desglose de costo |
-| RF-07 | `POST /ofertas/{id}/aceptar` | Cliente | confirma `viaje` copiando el desglose de la `oferta` a los `*_snapshot` (RNF-03), sin recalcular; habilita chat (RI-05) |
-| RF-08 / RN-07 | `POST /viajes/{id}/cancelar` (Cliente) | Cliente | sin cargo / con resarcimiento según estado |
-| RF-19 | `POST /viajes/{id}/cancelar` (Transportista) | Transportista | baja `tasa_cumplimiento`, sin penalización económica |
-| RF-21 | `GET /viajes/{id}` | Cliente/Transportista del viaje | incluye PIN para el Transportista |
-| RF-22 / RN-06 | `POST /viajes/{id}/pin-inicio` · `POST /viajes/{id}/pin-fin` | Transportista | valida PIN + ubicación |
-| RF-12 / RN-06 | `POST /viajes/{id}/resena` | Cliente | solo con PIN de fin validado |
-| RF-11 | `GET /transportistas/{id}` | autenticado | perfil público + reseñas |
-| RF-13 / RF-23 | `POST /incidentes` | Cliente/Transportista | alta de `incidente` |
-| RF-14 / RF-24 | `GET /viajes?rol=cliente\|transportista` | autenticado | historial |
-| RF-09 | `GET /notificaciones` · `POST /notificaciones/{id}/leida` | autenticado | — |
-| RF-01 / RF-02 / RF-03 / RF-04 | endpoints de Administrador | Administrador | se detallan cuando arranque ese frente |
+| Mód. | RF/RN | Método + path | Rol | Notas |
+|------|-------|---------------|-----|-------|
+| 2 | RF-05 | `POST /api/auth/registro/cliente` | Cliente | después del `signUp` en Supabase Auth; crea la fila `cliente` (D-18) |
+| 2 | RF-16 | `POST /api/auth/registro/transportista` | Transportista | crea `transportista` en estado `pendiente` |
+| 2 | RNF-01 | `GET /api/me` | autenticado | `usuario_id`, `email`, `nombre_completo`, `rol`, `estado_habilitacion` (Transportista). Fuente del rol para la app (D-18) |
+| 3 | RF-16 | `POST /api/transportista/documentos` · `GET /api/transportista/documentos` | Transportista | registra el path del archivo ya subido a Storage (D-19) |
+| 3 | RF-01 | `GET /api/admin/transportistas?estado=pendiente` | Administrador | operado desde Postman (D-17) |
+| 3 | RF-01 | `POST /api/admin/documentos/{id}/aprobar` · `/rechazar` | Administrador | rechazo con motivo; notificación `documentacion_revisada` |
+| 4 | RF-18 | `POST /api/transportista/vehiculos` · `GET /api/transportista/vehiculos` | Transportista | medidas útiles + peso (carga útil) |
+| 4 | RF-18 | `PUT /api/transportista/vehiculos/{id}/costos` | Transportista | fila de `vehiculo_costo`; sin ella no se puede ofertar con ese vehículo |
+| 4 | RN-04 | `GET /api/zonas` · `PUT /api/transportista/zonas` | autenticado / Transportista | catálogo de zonas y selección múltiple |
+| 4 | RN-05 | `PUT /api/transportista/disponibilidad` | Transportista | interruptor manual (D-21) |
+| 5 | RN-08 | `GET /api/catalogo/objetos` | autenticado | catálogo con medidas y flags |
+| 6 | RF-06 | `POST /api/solicitudes` | Cliente | copia peso, medidas y flags de cada objeto; **no calcula ni devuelve monto** (D-13, D-20) |
+| 6 | RF-06 | `GET /api/solicitudes` · `GET /api/solicitudes/{id}` | Cliente | "vencida" calculada al vuelo (D-20) |
+| 6 | RF-06 | `POST /api/solicitudes/{id}/cancelar` | Cliente | sin costo; ofertas pendientes a `no_seleccionada` |
+| 6 | RF-06 | `POST /api/solicitudes/{id}/republicar` | Cliente | sólo si está vencida; crea una nueva con otra fecha |
+| 7 | RF-17 / RN-04 | `GET /api/transportista/solicitudes` | Transportista | compatibles según D-21, sin vencidas |
+| 8 | RF-17 / RN-01 / RN-02 | `POST /api/solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes` (0..3). Calcula viajes y precio. Si la carga no entra, la ruta no se obtiene o el cálculo vence → error de validación con el motivo, sin oferta |
+| 8 | RF-17 | `POST /api/ofertas/{id}/retirar` · `GET /api/transportista/ofertas` | Transportista | la oferta no se edita: se retira y se crea otra (D-23) |
+| 9 | RF-07 / RN-05 | `GET /api/solicitudes/{id}/ofertas` | Cliente | **top 3 por score** (`ALGORITMO_SCORE.md`); `?ver_mas=true` pagina. Sólo `precio_calculado`, nunca el desglose |
+| 9 | RF-11 | `GET /api/transportistas/{id}` | autenticado | perfil público + reseñas; sin datos financieros |
+| 9 | RF-07 | `POST /api/ofertas/{id}/aceptar` | Cliente | vía `fn_aceptar_oferta`: crea el `viaje`, copia el desglose a `viaje_costo`, genera los PIN en `viaje_pin`, las demás ofertas pasan a `no_seleccionada`; habilita chat (RI-05) |
+| 10 | RF-21 | `GET /api/viajes/{id}` | Cliente/Transportista del viaje | el Cliente ve los PIN (de `viaje_pin`); el Transportista **nunca** (D-26) |
+| 10 | RN-07 | `POST /api/viajes/{id}/salida` | Transportista | setea `salio_en` |
+| 10 | RF-22 / RN-06 | `POST /api/viajes/{id}/pin-inicio` · `/pin-fin` | Transportista | PIN dictado por el Cliente + lat/lng/precisión; tolerancia 150 m; 5 intentos fallidos abren incidente |
+| 11 | RF-08 / RF-19 / RN-07 | `POST /api/viajes/{id}/cancelar` | Cliente / Transportista | Cliente: cargo del 20 % si ya salió; Transportista: sin cargo, solicitud vuelve a `publicada` (D-27) |
+| 12 | RI-03 | `POST /api/transportista/cuenta-pago` | Transportista | vinculación de Mercado Pago (OAuth), requisito para ofertar |
+| 12 | RI-03 | `POST /api/webhooks/pagos/mercadopago` | Mercado Pago | **sin JWT** (excepción a RNF-01), firma + idempotencia (D-28) |
+| 13 | RF-12 / RN-06 | `POST /api/viajes/{id}/resena` | Cliente | viaje finalizado y dentro de 14 días (D-29) |
+| 13 | RF-13 / RF-23 | `POST /api/incidentes` | Cliente/Transportista | con adjuntos opcionales; congela la liberación del pago |
+| 13 | RF-02 / RF-03 | `GET /api/admin/incidentes` · `POST /api/admin/incidentes/{id}/resolver` | Administrador | reembolso o liberación total/parcial, veto, cierre sin acción |
+| 13 | RF-04 | `POST /api/admin/vetos` | Administrador | temporal o definitivo |
+| 13 | RF-09 | `GET /api/notificaciones` · `POST /api/notificaciones/{id}/leida` | autenticado | sólo in-app en esta etapa (D-22) |
+| 14 | RF-14 / RF-24 | `GET /api/viajes?rol=cliente\|transportista` | autenticado | historial paginado |
