@@ -9,11 +9,9 @@
 
 ## Resumen de una línea
 
-Esquema de datos desplegado, migrado para el nuevo modelo de precio y documentado; ERS cerrada;
-algoritmos de cotización y cálculo de viajes diseñados; convenciones de código definidas
-(`CLAUDE.md` §5); **código Go todavía no empezado** —
-este repo tiene la estructura, los archivos de contexto y las skills, pero cero endpoints
-implementados.
+Módulos 0 a 7 de `docs/PLAN_CONSTRUCCION.md` construidos, probados y mergeados (identidad,
+habilitación, vehículos, catálogo, solicitudes y matchmaking); módulo 8 (oferta, precio y cálculo
+de viajes) con el backend hecho y la migración `0016` probada en local, pendiente de aplicar.
 
 ---
 
@@ -38,8 +36,9 @@ implementados.
 | Vehículos, costos y zonas (módulo 4) | En curso (2026-10-03) | Backend hecho: tipos de vehículo con medidas estándar, alta y listado de vehículos, activar o desactivar, costos en un segundo paso, catálogo de zonas, zonas del Transportista y disponibilidad. Montos y medidas como decimales exactos (paquete `decimal`, D-11). Migración `0013` probada en local y aplicada en `dbFletway` con confirmación explícita. App en `fletway-mobile`, probada en el emulador. |
 | Catálogo de objetos (módulo 5) | Hecho (2026-10-03) | `GET /api/catalogo/objetos` y el selector de la app, probados en el emulador y mergeados. |
 | Solicitud (módulo 6) | Hecho (2026-10-03) | Backend hecho: publicar (objetos del catálogo y manuales, coordenadas por `Geocodificador` aproximado), listar con vencimiento al leer, detalle, cancelar y republicar. Migración `0014` (fecha y franja; sin edición, objetos fijos y copia del catálogo por triggers) probada en local y aplicada en `dbFletway` con confirmación explícita (advisors sin hallazgos nuevos). App en `fletway-mobile`. |
-| Matchmaking (módulo 7) | En curso (2026-10-03) | Backend hecho: `GET /api/transportista/solicitudes` y aviso in-app asíncrono al publicar y republicar. La regla D-21 vive en la base (`fn_es_compatible`, migración `0015`, probada en local y aplicada en `dbFletway` con confirmación explícita; advisors: dos WARN esperables por las funciones expuestas a usuarios logueados). App en `fletway-mobile`, probada en el emulador. |
-| Dependencias Go | Hecho (2026-10-02) | `pgx/v5`, `golang-jwt/jwt/v5`, `keyfunc/v3`, `testify`. Módulo `github.com/matexs/fletway-backend` (D-05). |
+| Matchmaking (módulo 7) | Hecho (2026-10-03) | Backend hecho: `GET /api/transportista/solicitudes` y aviso in-app asíncrono al publicar y republicar. La regla D-21 vive en la base (`fn_es_compatible`, migración `0015`, probada en local y aplicada en `dbFletway` con confirmación explícita; advisors: dos WARN esperables por las funciones expuestas a usuarios logueados). App en `fletway-mobile`, probada en el emulador. |
+| Oferta, precio y viajes (módulo 8) | En curso (2026-10-03) | Backend hecho: cotizar sin guardar, ofertar, retirar y listar las propias. Funciones puras de precio (`cotizacion.go`) y de viajes con boxpacker3 v2 (`viajes.go`), con tests table-driven; interfaz `Ruteador` (`aproximado` en local, `fijo` en tests; en producción exige `google`). Migración `0016` (`config_margen` con seed 0 %, `oferta_costo`, protección de la oferta) probada en local; falta aplicarla en `dbFletway` y la app. |
+| Dependencias Go | Hecho (2026-10-03) | `pgx/v5`, `golang-jwt/jwt/v5`, `keyfunc/v3`, `testify`, `bavix/boxpacker3/v2`. Módulo `github.com/matexs/fletway-backend` (D-05). |
 
 ---
 
@@ -134,3 +133,4 @@ implementados.
 | 2026-10-03 | Módulo 4 probado en el emulador (también el Transportista pendiente y la patente duplicada) y mergeado. Módulo 5 (backend): feature `catalogo`. |
 | 2026-10-03 | Módulo 5 probado en el emulador (con GPU por software: la de hardware hacía caer a qemu) y mergeado. Se decide terminar primero los flujos y hacer la pasada de UI/UX en el módulo 15, con una decoración mínima por pantalla mientras tanto. Módulo 6 (backend): migración `0014`, feature `solicitud`, `Geocodificador`. Se cerraron por trigger: edición de solicitudes, cambios de objetos con ofertas y objetos de catálogo con medidas falsas. |
 | 2026-10-03 | Módulo 6 aplicado (`0014`), probado en el emulador y mergeado. Módulo 7 (backend): migración `0015` y feature `matchmaking`; test de terminado con los cinco casos excluidos (sin zona, sin capacidad o vehículo inactivo, no disponible, no habilitado, vetado). |
+| 2026-10-03 | Módulo 7 mergeado. Módulo 8 (backend): migración `0016` y feature `oferta`. Además de lo que pedía el plan: el desglose es obligatorio al crear la oferta (trigger diferido: sólo el backend crea ofertas, PostgREST no puede inventar un precio), una oferta vigente por vehículo para poder retirar y volver a ofertar (D-23), y `POST .../ofertas/cotizar` para ver el precio antes de ofertar. Test de terminado: el Cliente no lee el desglose y nadie modifica el precio. |

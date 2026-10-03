@@ -138,7 +138,7 @@ func SubirArchivo(t *testing.T, bucket, path string) {
 
 // borrarUsuario borra el usuario de prueba. Antes suelta las referencias que no
 // borran en cascada (notificaciones recibidas, documentos que revisó, solicitudes
-// publicadas).
+// publicadas, ofertas).
 func borrarUsuario(t *testing.T, id string) {
 	t.Helper()
 	ctx := context.Background()
@@ -150,6 +150,7 @@ func borrarUsuario(t *testing.T, id string) {
 			`DELETE FROM notificacion WHERE destinatario_usuario_id = $1`,
 			`UPDATE documento_transportista SET revisado_por_admin_id = NULL WHERE revisado_por_admin_id = $1`,
 			`DELETE FROM solicitud WHERE cliente_id = $1`,
+			`DELETE FROM oferta WHERE transportista_id = $1`,
 			`DELETE FROM veto WHERE usuario_id = $1 OR admin_id = $1`,
 			`DELETE FROM auth.users WHERE id = $1`,
 		} {

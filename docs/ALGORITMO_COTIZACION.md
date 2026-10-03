@@ -37,7 +37,7 @@ RN-01 menciona la "demanda" como factor de precio. Este algoritmo no tiene ning�
 
 El margen es un **parámetro de plataforma**, en una tabla nueva `config_margen` versionada igual que las demás `config_*` (`margen_pct` 0–100). **No** es configurable por Transportista: así se evita una carrera a la baja de márgenes, contraria a la "ganancia justa" de RN-01.
 
-El valor aplicado se guarda en cada oferta (`oferta.margen_pct`) y se congela en el viaje (`viaje.margen_pct_snapshot`). La tabla `config_margen` todavía no existe: se crea en el módulo 8 (`docs/PLAN_CONSTRUCCION.md`).
+El valor aplicado se guarda en cada oferta (`oferta.margen_pct`) y se congela en el viaje (`viaje.margen_pct_snapshot`). La tabla `config_margen` se creó en el módulo 8 (migración `0016`), con seed 0 % hasta que el equipo defina otro valor.
 
 ---
 
@@ -89,7 +89,7 @@ El cálculo corre **una sola vez por Oferta creada**. El resultado se guarda en 
 | `config_operacion` (nuevo) (vigente) | ver §4.3 | Existe (1 fila seed ilustrativa) |
 | `config_comision` (vigente) | `porcentaje` (**0–100**, numeric(5,2)) | Existe; legible por cualquier usuario autenticado desde 0007 |
 | `config_impuesto` (nuevo) (vigente) | `iva_pct` (0–100) | Existe (1 fila seed: 21 %) |
-| `config_margen` (vigente) | `margen_pct` (0–100) | Se crea en el módulo 8 (D-15) |
+| `config_margen` (vigente) | `margen_pct` (0–100) | Existe desde `0016` (D-15; seed 0 %) |
 
 > **Diferencias con el borrador:**
 > - El borrador lista `solicitud.rango_horario` como entrada. **Esa columna no existe** y **el algoritmo no la usa** en ninguna fórmula. No se creó.
@@ -376,7 +376,7 @@ func precioFinal(precioNeto, ivaPct float64) float64 {
 
 ## 6. Qué se guarda en `oferta`/`oferta_costo` y en `viaje`/`viaje_costo`
 
-El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23): **`oferta_costo`** (1 a 1 con `oferta`) y **`viaje_costo`** (1 a 1 con `viaje`). En `oferta` y `viaje` quedan sólo los datos que ve el Cliente: cantidad de viajes, cantidad de ayudantes y precio final. En la tabla de abajo, las filas de distancia a IVA van a `oferta_costo` y `viaje_costo` (las columnas que hoy están en `oferta` y `viaje`, de las migraciones `0005` y `0006`, se mueven en los módulos 8 y 9 de `docs/PLAN_CONSTRUCCION.md`).
+El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23): **`oferta_costo`** (1 a 1 con `oferta`) y **`viaje_costo`** (1 a 1 con `viaje`). En `oferta` y `viaje` quedan sólo los datos que ve el Cliente: cantidad de viajes, cantidad de ayudantes y precio final. En la tabla de abajo, las filas de distancia a IVA van a `oferta_costo` y `viaje_costo` (las de `oferta` se movieron a `oferta_costo` en `0016`; las de `viaje`, de `0006`, se mueven en el módulo 9 de `docs/PLAN_CONSTRUCCION.md`).
 
 | Variable del algoritmo | `oferta` | `viaje` (snapshot al aceptar) |
 |---|---|---|
@@ -408,10 +408,10 @@ El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23)
 3. Implementar `duracionOperacion` con la fórmula de §4.3, usando `TiempoPorM3Min` y no `TiempoPorKgMin`.
 4. `calcularCostoOferta` recorre los viajes que devuelve `planificarViajes` (ver `ALGORITMO_VIAJES_EMPAQUETADO.md`). No asumir un solo viaje.
 5. `precioFinal` → `oferta.precio_calculado` es el único monto que ve el Cliente. **No exponer** `costo_operativo`, `precio_neto` ni el desglose en respuestas de API al Cliente, sólo al propio Transportista y al Administrador.
-   **Atención:** A nivel base, `oferta_select` y `viaje_select` **sí** dejan al Cliente leer esas columnas (lectura directa por PostgREST). Ver §8.
+   A nivel base, el desglose de la oferta vive en `oferta_costo`, que el Cliente no lee (`0016`). **Atención:** `viaje_select` todavía deja leer el snapshot hasta que exista `viaje_costo` (módulo 9). Ver §8.
 6. No calcular, escribir ni exponer ningún monto en el endpoint de creación de `solicitud`. No escribir `cotizacion_estimada_monto`.
 7. Al aceptar la oferta, el `viaje` copia el desglose de la `oferta` (§6). No lo recalcula.
-8. Leer `margenPct` de `config_margen` vigente (D-15). La tabla se crea en el módulo 8.
+8. Leer `margenPct` de `config_margen` vigente (D-15). La tabla existe desde `0016`.
 9. Validar `cantidad_ayudantes` entre 0 y 3 (D-23) y envolver el cálculo de viajes en un `context.WithTimeout` de 5 s (D-24).
 
 ---
@@ -437,8 +437,8 @@ El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23)
 **Limpieza posterior (DROP, no reversible, requiere confirmación aparte):** cuando el backend ya no lea lo deprecado, borrar `solicitud_objeto.volumen_unitario_m3`, `vehiculo.volumen_carga_m3`, `solicitud.requiere_escalera/pisos_escalera/cotizacion_estimada_monto`, los 6 snapshots de tarifa plana de `viaje` y la tabla `config_tarifa`. Para `viaje`, primero hay que reescribir `fn_proteger_campos_viaje` sin esas columnas y después hacer el DROP. `objeto.volumen_estimado_m3` es redundante con las dimensiones; se puede borrar una vez cargadas.
 
 **Riesgos de RLS:**
-1. **Integridad de `oferta`:** resuelto por diseño (D-23): trigger `trg_proteger_campos_oferta` que impide a Cliente y Transportista modificar costo, precio y FK. Se crea en el módulo 8.
-2. **Lectura del desglose por el Cliente:** resuelto (D-23): el desglose vive en `oferta_costo` y `viaje_costo`, con RLS sólo para el Transportista y el Administrador. Se crean en los módulos 8 y 9.
+1. **Integridad de `oferta`:** resuelto en `0016` (D-23): `trg_proteger_campos_oferta` impide a Cliente y Transportista modificar costo, precio y FK, y `trg_exigir_costo_oferta` rechaza una oferta sin desglose, así que sólo el backend crea ofertas.
+2. **Lectura del desglose por el Cliente:** resuelto para la oferta en `0016` (`oferta_costo`, RLS sólo Transportista dueño y Administrador); para el viaje, `viaje_costo` se crea en el módulo 9.
 
 **Decisiones (2026-10-01):**
 - `margen_pct`: parámetro de plataforma (D-15).

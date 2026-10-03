@@ -379,6 +379,62 @@ crea la notificación in-app `solicitud_compatible` ("Hay una nueva solicitud de
 Revisala y postulate si te interesa.") para cada Transportista compatible en ese momento. Es
 idempotente: una notificación por Transportista y solicitud.
 
+### Ofertas (RF-17, RN-01, RN-02, D-23, D-24)
+
+El Transportista elige vehículo y ayudantes; el sistema calcula la cantidad de viajes con el
+vehículo real (`ALGORITMO_VIAJES_EMPAQUETADO.md`) y el precio (`ALGORITMO_COTIZACION.md`). Una oferta
+no se edita: se retira y se crea otra. El desglose (`desglose`) sólo lo ven el Transportista dueño y
+el Administrador; la base lo guarda en `oferta_costo` (`0016`).
+
+#### `POST /api/solicitudes/{id}/ofertas/cotizar` (Transportista)
+Mismo request y mismas validaciones que ofertar, pero **no guarda nada**: devuelve el precio y los
+viajes que tendría la oferta, para decidir antes de ofertar. `200`:
+
+```json
+{ "cantidad_viajes": 1, "cantidad_ayudantes": 1, "precio_calculado": 98456.12,
+  "desglose": { "distancia_km": 18.4, "duracion_ruta_h": 0.61, "duracion_operacion_h": 0.52,
+    "costo_laboral": 42210.33, "costo_vehiculo": 9120.5, "costos_adicionales": 0,
+    "costo_operativo": 51330.83, "margen_pct": 0, "precio_neto": 60389.21,
+    "porcentaje_comision": 15, "iva_pct": 21 } }
+```
+
+#### `POST /api/solicitudes/{id}/ofertas` (Transportista habilitado)
+Request: `{ "vehiculo_id": "uuid", "cantidad_ayudantes": 1 }` (0 a 3, D-23). La solicitud tiene que
+estar entre las compatibles del Transportista (`GET /api/transportista/solicitudes`); el vehículo,
+activo y con costos cargados. `201` con `Oferta`:
+
+```json
+{ "id": "uuid", "estado": "pendiente", "solicitud_id": "uuid", "solicitud_estado": "publicada",
+  "fecha_servicio_deseada": "2026-10-12", "origen_zona_nombre": "San Isidro",
+  "destino_zona_nombre": "Ciudad Autónoma de Buenos Aires", "vehiculo_id": "uuid",
+  "vehiculo_patente": "AB123CD", "vehiculo_tipo": "Furgón chico", "cantidad_viajes": 1,
+  "cantidad_ayudantes": 1, "precio_calculado": 98456.12, "desglose": { "...": "igual que cotizar" },
+  "creado_en": "2026-10-03T15:00:00Z" }
+```
+
+Errores (también de cotizar, salvo el último):
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `datos_invalidos` | `vehiculo_id` mal formado o ayudantes fuera de 0..3 (`details` por campo) |
+| 400 | `carga_no_factible` | la carga no entra en el vehículo; `details.motivos` explica por objeto ("Heladera: no entra en la posición en que tiene que viajar") o "la carga necesita más de 20 viajes con este vehículo" |
+| 400 | `calculo_demorado` | el cálculo de viajes superó los 5 s (D-24) |
+| 400 | `ruta_no_disponible` | no se pudo calcular el recorrido (nunca se estima "a ojo", D-24) |
+| 403 | `no_es_transportista` · `transportista_no_habilitado` | |
+| 404 | `solicitud_no_disponible` | no existe, ya no está publicada o no es compatible con el Transportista |
+| 404 | `vehiculo_no_encontrado` | no existe o es de otro Transportista |
+| 409 | `transportista_no_disponible` | tiene la disponibilidad apagada |
+| 409 | `vehiculo_inactivo` · `costos_no_cargados` | |
+| 409 | `oferta_duplicada` | ya tiene una oferta vigente con ese vehículo para la solicitud |
+
+#### `POST /api/ofertas/{id}/retirar` (Transportista dueño)
+Pasa a `retirada` una oferta `pendiente`. `200` con `Oferta`. Después puede ofertar de nuevo con el
+mismo vehículo. Errores: `404 oferta_no_encontrada`, `409 oferta_no_retirable`.
+
+#### `GET /api/transportista/ofertas` (Transportista)
+Sus ofertas, las más nuevas primero, con el desglose. `solicitud_estado` trae `vencida` calculado al
+leer (D-20). `200` con `[Oferta]`. Error: `403 no_es_transportista`.
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -388,8 +444,6 @@ idempotente: una notificación por Transportista y solicitud.
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 8 | RF-17 / RN-01 / RN-02 | `POST /api/solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes` (0..3). Calcula viajes y precio. Si la carga no entra, la ruta no se obtiene o el cálculo vence → error de validación con el motivo, sin oferta |
-| 8 | RF-17 | `POST /api/ofertas/{id}/retirar` · `GET /api/transportista/ofertas` | Transportista | la oferta no se edita: se retira y se crea otra (D-23) |
 | 9 | RF-07 / RN-05 | `GET /api/solicitudes/{id}/ofertas` | Cliente | **top 3 por score** (`ALGORITMO_SCORE.md`); `?ver_mas=true` pagina. Sólo `precio_calculado`, nunca el desglose |
 | 9 | RF-11 | `GET /api/transportistas/{id}` | autenticado | perfil público + reseñas; sin datos financieros |
 | 9 | RF-07 | `POST /api/ofertas/{id}/aceptar` | Cliente | vía `fn_aceptar_oferta`: crea el `viaje`, copia el desglose a `viaje_costo`, genera los PIN en `viaje_pin`, las demás ofertas pasan a `no_seleccionada`; habilita chat (RI-05) |

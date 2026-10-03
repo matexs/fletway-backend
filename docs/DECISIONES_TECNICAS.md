@@ -425,6 +425,13 @@ Además, sólo Transportistas `habilitado` y sin veto vigente.
     `viaje_costo`, genera los PIN (D-26), pasa las demás ofertas a `no_seleccionada` y la
     solicitud a `asignada`. Hace falta porque la sesión del Cliente no puede leer `oferta_costo`.
 
+**Implementación (módulo 8, migración `0016`, 2026-10-03):** para que "se retira y se crea otra"
+valga también con el mismo vehículo, el `UNIQUE (solicitud, transportista, vehículo)` pasó a un
+índice único parcial que ignora las ofertas `retiradas`. Una oferta sin su fila en `oferta_costo` se
+rechaza al hacer COMMIT (trigger diferido), así que sólo el backend, que calcula el precio, crea
+ofertas. `POST /api/solicitudes/{id}/ofertas/cotizar` muestra el precio antes de ofertar, sin
+guardar nada.
+
 ---
 
 ## D-24 — Ajustes a la fórmula de precio y al cálculo de viajes · CONFIRMADA (2026-10-01)

@@ -13,6 +13,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/feature/identidad"
 	"github.com/matexs/fletway-backend/internal/feature/matchmaking"
 	"github.com/matexs/fletway-backend/internal/feature/notificacion"
+	"github.com/matexs/fletway-backend/internal/feature/oferta"
 	"github.com/matexs/fletway-backend/internal/feature/solicitud"
 	"github.com/matexs/fletway-backend/internal/feature/vehiculo"
 	"github.com/matexs/fletway-backend/internal/platform/async"
@@ -21,6 +22,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/middleware"
+	"github.com/matexs/fletway-backend/internal/platform/ruteo"
 	"github.com/matexs/fletway-backend/internal/platform/storage"
 )
 
@@ -33,13 +35,15 @@ type Server struct {
 	verifier *auth.Verifier
 	archivos storage.Firmador
 	geo      geocodificacion.Geocodificador
+	ruta     ruteo.Ruteador
 }
 
 // New construye el Server con sus dependencias. El verifier de JWT lo crea quien
 // llama (necesita un contexto de vida para refrescar el JWKS); archivos firma las
-// URLs de Storage (D-19); geo ubica las direcciones de las solicitudes (D-20).
+// URLs de Storage (D-19); geo ubica las direcciones de las solicitudes (D-20);
+// ruta calcula el trayecto que entra en el precio de cada oferta (D-24).
 func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueuer, verifier *auth.Verifier,
-	archivos storage.Firmador, geo geocodificacion.Geocodificador) *Server {
+	archivos storage.Firmador, geo geocodificacion.Geocodificador, ruta ruteo.Ruteador) *Server {
 	return &Server{
 		cfg:      cfg,
 		log:      log,
@@ -48,6 +52,7 @@ func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueu
 		verifier: verifier,
 		archivos: archivos,
 		geo:      geo,
+		ruta:     ruta,
 	}
 }
 
@@ -88,6 +93,7 @@ func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	match := matchmaking.NewService(s.db)
 	matchmaking.Register(apiMux, match)
 	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo, match, s.jobs))
+	oferta.Register(apiMux, oferta.NewService(s.db, s.ruta))
 	habilitacion.Register(apiMux,
 		habilitacion.NewService(s.db, s.archivos, notificacion.NewInApp(s.db), s.jobs))
 }

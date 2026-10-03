@@ -18,6 +18,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/platform/config"
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
+	"github.com/matexs/fletway-backend/internal/platform/ruteo"
 	"github.com/matexs/fletway-backend/internal/platform/storage"
 	"github.com/matexs/fletway-backend/internal/server"
 )
@@ -67,6 +68,12 @@ func run() error {
 		return err
 	}
 
+	// Distancia y duración del trayecto de cada oferta (D-24).
+	ruta, err := ruteo.Nuevo(cfg.RuteoProveedor, cfg.Env)
+	if err != nil {
+		return err
+	}
+
 	// Workers async para tareas en segundo plano sin bloquear el request (RNF-02 / D-06).
 	jobs := async.NewPool(cfg.Async.Workers, cfg.Async.QueueSize, logger)
 	jobs.Start(ctx)
@@ -74,7 +81,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler:      server.New(cfg, logger, db, jobs, verifier, archivos, geo).Handler(),
+		Handler:      server.New(cfg, logger, db, jobs, verifier, archivos, geo, ruta).Handler(),
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 	}
