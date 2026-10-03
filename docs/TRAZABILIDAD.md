@@ -25,7 +25,7 @@
 
 | RF | Título | Estado | Endpoint(s) / servicio | Tablas | Tests |
 |----|--------|--------|------------------------|--------|-------|
-| RF-05 | Registro de Cliente | `NO` | — | `usuario`, `cliente` | — |
+| RF-05 | Registro de Cliente | `EN CURSO` | `trg_alta_usuario` (`0011`) + `POST /api/auth/registro/cliente`, `GET /api/me` (`internal/feature/identidad`). Falta la pantalla de la app | `usuario`, `cliente` | `identidad_test.go` (registro, errores, trigger, RLS) |
 | RF-06 | Publicar necesidad de servicio | `NO` | — (**sin cotización estimada**: el endpoint no calcula ni devuelve monto) | `solicitud` (acceso origen/destino (nuevo)), `solicitud_objeto` (dimensiones y flags (nuevo), copiados desde `objeto`), `objeto` | — |
 | RF-07 | Elegir entre ofertas de Transportistas | `NO` | — (al aceptar, el `viaje` **copia** el desglose de costo de la `oferta` a `*_snapshot` (nuevo); no recalcula) | `oferta`, `viaje`, `estado_oferta`, `estado_viaje` | — |
 | RF-08 | Cancelar servicio | `NO` | — | `viaje`, `estado_viaje`, `pago`, `pago_movimiento` | — |
@@ -41,7 +41,7 @@
 
 | RF | Título | Estado | Endpoint(s) / servicio | Tablas | Tests |
 |----|--------|--------|------------------------|--------|-------|
-| RF-16 | Registro de Transportista | `NO` | — | `usuario`, `transportista`, `documento_transportista` | — |
+| RF-16 | Registro de Transportista | `EN CURSO` | Alta de cuenta: `trg_alta_usuario` + `POST /api/auth/registro/transportista` (queda `pendiente`). Falta la app y la documentación (módulo 3) | `usuario`, `transportista`, `documento_transportista` | `identidad_test.go` (registro, alta siempre `pendiente`) |
 | RF-17 | Ver y ofertar sobre necesidades de servicio | `NO` | — (al ofertar corren `planificarViajes` + `calcularCostoOferta`; si no entra → error de validación) | `solicitud`, `solicitud_objeto`, `oferta` (desglose (nuevo)), `transportista_zona`, `vehiculo`, `vehiculo_costo` (nuevo), `config_costo_laboral` (nuevo), `config_operacion` (nuevo), `config_impuesto` (nuevo), `config_comision` | — |
 | RF-18 | Registrar vehículo | `NO` | — | `vehiculo` (dimensiones útiles (nuevo)), `vehiculo_costo` (nuevo), `tipo_vehiculo` | — |
 | RF-19 | Cancelar viajes | `NO` | — | `viaje`, `transportista` (tasa_cumplimiento) | — |
@@ -72,7 +72,7 @@
 
 | RNF | Estado | Cómo se satisface |
 |-----|--------|-------------------|
-| RNF-01 — JWT en todos los endpoints | `EN CURSO` | middleware `auth` obligatorio en el mux, con verificación ES256 contra el JWKS de Supabase (D-04, módulo 1, 2026-10-02). Pasa a `OK` cuando los endpoints de negocio lo usen con sus tests |
+| RNF-01 — JWT en todos los endpoints | `EN CURSO` | middleware `auth` obligatorio en el mux, con verificación ES256 contra el JWKS de Supabase (D-04, módulo 1, 2026-10-02). Desde el módulo 2 lo usan `GET /api/me` y los registros. Pasa a `OK` cuando la app consuma la API con el JWT |
 | RNF-02 — Async y concurrente | `EN CURSO` | `internal/platform/async` (pool de workers); handlers no bloquean en side-effects |
 | RNF-03 — 3FN + snapshot en `viaje` | `OK` (en DB) | ya en el esquema; el backend debe **escribir** los `*_snapshot` al confirmar viaje. Los snapshots de tarifa plana quedaron DEPRECATED y se reemplazaron por el desglose de costo (migración 0006, aplicada) |
 | RNF-04 — Mínima decisión del Cliente | `EN CURSO` | precio automático (RN-01), top 3 (RN-05) — se respeta en el diseño de endpoints |

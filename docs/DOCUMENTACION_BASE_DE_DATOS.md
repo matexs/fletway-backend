@@ -3,7 +3,7 @@
 Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas
 Este documento describe el esquema **tal como está desplegado hoy** (verificado contra el catálogo de Postgres, no contra los scripts originales) y explica por qué existe cada pieza en términos del negocio.
 
-**Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
+**Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`) y la identidad del módulo 2 (`0010`–`0011`, sólo en local por ahora). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
 
 ---
 
@@ -75,6 +75,13 @@ erDiagram
 | `documento_transportista` | Historial de cada documento cargado, con motivo de rechazo — soporta "reintentos sin límite" (RF-01). No está en la ERS original; es un desdoblamiento necesario porque un único campo de estado en Transportista no alcanza para trazar reintentos por tipo de documento. | `tipo_documento_codigo`, `url_archivo`, `estado`, `motivo_rechazo`, `revisado_por_admin_id` |
 
 **Protección especial:** un trigger (`trg_proteger_campos_transportista`) impide que el propio Transportista modifique `estado_habilitacion_codigo`, `calificacion_promedio` o `tasa_cumplimiento` vía UPDATE — esos campos solo los toca un Administrador o el sistema.
+
+**Alta de cuenta (D-18, migración `0011`):**
+- `trg_alta_usuario` (`AFTER INSERT ON auth.users`, función `fn_alta_usuario`) crea la fila `usuario` desde la metadata del `signUp` (`rol`, `nombre_completo`, `telefono`). Sólo acepta `rol` = `cliente` o `transportista`; cualquier otro valor, o la falta de nombre o teléfono, aborta el alta. El primer Administrador se crea por SQL (bootstrap).
+- `trg_proteger_campos_usuario` (BEFORE UPDATE): un usuario no Administrador no cambia su `rol`, `email` ni `activo`.
+- `trg_proteger_alta_transportista` (BEFORE INSERT): el alta de un Transportista hecha por un usuario nace `pendiente`, sin calificación ni tasa.
+- `cliente_insert` / `transportista_insert` exigen además que `usuario.rol` coincida con la tabla (un rol por cuenta, D-17).
+- Estas protecciones aplican a requests con JWT (`auth.role()` `anon` o `authenticated`); las operaciones de mantenimiento sin JWT no se ven afectadas.
 
 ### Dominio 2 — Geografía
 *Cómo se resuelve el matchmaking por zona (RN-04).*
@@ -197,6 +204,8 @@ Todas las políticas usan `(select auth.uid())` (no `auth.uid()` directo) para q
 - `oferta_select` y `viaje_select` le dejan al Cliente leer **todas** las columnas, incluidos `costo_operativo` y el desglose. La regla "el Cliente sólo ve el precio final" hoy la cumple sólo la API del backend, no la base.
 - `oferta_update` deja a Cliente y Transportista modificar cualquier columna de la oferta, incluido `precio_calculado`. No hay trigger de protección como en `viaje` y `transportista`.
 
+**Resuelto en la migración `0010` (2026-10-02):** `solicitud_select` consultaba `oferta` y `oferta_select` consultaba `solicitud`, lo que daba `infinite recursion detected in policy` en cualquier lectura autenticada de `solicitud`, `oferta`, `usuario`, `cliente` o `solicitud_objeto`. La rama "el Transportista ya ofertó" de `solicitud_select` usa ahora `fn_tiene_oferta_en_solicitud` (`SECURITY DEFINER`).
+
 ---
 
 ## 6. Qué no está en esta base (a propósito)
@@ -220,5 +229,6 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
+| 2026-10-02 (sólo local) | `0010`–`0011` | Módulo 2: corrección de la recursión de RLS entre `solicitud` y `oferta`; trigger de alta en `auth.users` y protecciones de `usuario`, `transportista`, `cliente_insert` y `transportista_insert`. |
 
 > Nota: antes de esta actualización el documento decía "34 tablas", pero el esquema real tenía 35 (error de recuento registrado en `VERIFICACION_ESQUEMA_2026-09-07.md`, D-1). El número actual, **39**, se verificó contra el catálogo después de aplicar las migraciones.
