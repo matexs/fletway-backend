@@ -5,6 +5,9 @@
 -- Afecta: trigger nuevo en auth.users; triggers nuevos en usuario y transportista;
 --   policies cliente_insert y transportista_insert (reemplazadas).
 --
+-- APLICADA el 2026-10-02 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- 1. Alta (D-18): la app hace signUp con nombre_completo, telefono y rol en la metadata y
 --    este trigger crea la fila usuario. Sólo acepta rol cliente o transportista: la metadata
 --    la controla el propio usuario, así que cualquier otro valor (incluido administrador)

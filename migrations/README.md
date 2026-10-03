@@ -14,8 +14,8 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | `0001`–`0007` | Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
 | `0008` | Aplicada 2026-10-02 | Seed de las 14 zonas piloto (módulo 0, RN-04). |
 | `0009` | Aplicada 2026-10-02 | Catálogo de 28 objetos con medidas y `NOT NULL` en `largo_m`/`ancho_m`/`alto_m` (módulo 0, RN-08). |
-| `0010` | Sólo local (pendiente de confirmación para `dbFletway`) | Corta la recursión infinita entre `solicitud_select` y `oferta_select` con `fn_tiene_oferta_en_solicitud` (módulo 2). |
-| `0011` | Sólo local (pendiente de confirmación para `dbFletway`) | Trigger de alta `trg_alta_usuario` en `auth.users` (D-18), protección de `usuario.rol`/`email`/`activo`, alta de Transportista siempre `pendiente` e inserción de la fila de rol sólo si coincide con `usuario.rol` (módulo 2). |
+| `0010` | Aplicada 2026-10-02 | Corta la recursión infinita entre `solicitud_select` y `oferta_select` con `fn_tiene_oferta_en_solicitud` (módulo 2). |
+| `0011` | Aplicada 2026-10-02 | Trigger de alta `trg_alta_usuario` en `auth.users` (D-18), protección de `usuario.rol`/`email`/`activo`, alta de Transportista siempre `pendiente` e inserción de la fila de rol sólo si coincide con `usuario.rol` (módulo 2). |
 
 ## Esquema base y entorno local (D-16)
 

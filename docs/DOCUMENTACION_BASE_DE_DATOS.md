@@ -3,7 +3,7 @@
 Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas
 Este documento describe el esquema **tal como está desplegado hoy** (verificado contra el catálogo de Postgres, no contra los scripts originales) y explica por qué existe cada pieza en términos del negocio.
 
-**Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`) y la identidad del módulo 2 (`0010`–`0011`, sólo en local por ahora). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
+**Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`) y la identidad del módulo 2 (`0010`–`0011`). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
 
 ---
 
@@ -229,6 +229,6 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
-| 2026-10-02 (sólo local) | `0010`–`0011` | Módulo 2: corrección de la recursión de RLS entre `solicitud` y `oferta`; trigger de alta en `auth.users` y protecciones de `usuario`, `transportista`, `cliente_insert` y `transportista_insert`. |
+| 2026-10-02 | `0010`–`0011` | Módulo 2: corrección de la recursión de RLS entre `solicitud` y `oferta`; trigger de alta en `auth.users` y protecciones de `usuario`, `transportista`, `cliente_insert` y `transportista_insert`. |
 
 > Nota: antes de esta actualización el documento decía "34 tablas", pero el esquema real tenía 35 (error de recuento registrado en `VERIFICACION_ESQUEMA_2026-09-07.md`, D-1). El número actual, **39**, se verificó contra el catálogo después de aplicar las migraciones.

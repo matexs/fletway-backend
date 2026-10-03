@@ -4,6 +4,9 @@
 --   vuelve a dejar la recursión).
 -- Afecta: policy solicitud_select (reemplazada); función nueva fn_tiene_oferta_en_solicitud.
 --
+-- APLICADA el 2026-10-02 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- Problema (presente en dbFletway desde el esquema inicial): solicitud_select consulta oferta
 -- y oferta_select consulta solicitud. Postgres aplica RLS dentro de esas subconsultas, así que
 -- cualquier lectura autenticada de solicitud u oferta termina en
