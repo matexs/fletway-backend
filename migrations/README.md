@@ -17,6 +17,7 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | `0010` | Aplicada 2026-10-02 | Corta la recursión infinita entre `solicitud_select` y `oferta_select` con `fn_tiene_oferta_en_solicitud` (módulo 2). |
 | `0011` | Aplicada 2026-10-02 | Trigger de alta `trg_alta_usuario` en `auth.users` (D-18), protección de `usuario.rol`/`email`/`activo`, alta de Transportista siempre `pendiente` e inserción de la fila de rol sólo si coincide con `usuario.rol` (módulo 2). |
 | `0012` | Aplicada 2026-10-03 | Bucket privado `documentos-transportista` y sus policies de Storage (D-19); alta de documentos siempre pendiente y en el prefijo propio; estado de habilitación derivado de los documentos (D-33) (módulo 3). |
+| `0013` | Sólo local (pendiente de confirmación para `dbFletway`) | `tipo_vehiculo` con largo, ancho y alto estándar y 6 tipos nuevos (A-1, D-32); `volumen_estandar_m3` deprecada (módulo 4). |
 
 ## Esquema base y entorno local (D-16)
 
