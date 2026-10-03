@@ -134,11 +134,14 @@ func TestCrearYListar(t *testing.T) {
 	transportista := dbtest.CrearTransportista(t)
 	tipo := a.tipoID("Furgón chico")
 
-	code, raw := a.llamar(transportista, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, "ab 123-cd"))
+	// Patente al azar escrita en minúscula, con espacio y guion (ej. "ab 123-cd").
+	patente := nuevaPatente()
+	escrita := strings.ToLower(patente[:2]) + " " + patente[2:5] + "-" + strings.ToLower(patente[5:])
+	code, raw := a.llamar(transportista, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, escrita))
 	require.Equal(t, http.StatusCreated, code, string(raw))
 	var v vehiculo.VehiculoResponse
 	require.NoError(t, json.Unmarshal(raw, &v))
-	assert.Equal(t, "AB123CD", v.Patente, "la patente se normaliza")
+	assert.Equal(t, patente, v.Patente, "la patente se normaliza")
 	assert.Equal(t, "Furgón chico", v.TipoVehiculoNombre)
 	assert.Equal(t, "2.4", v.LargoUtilM.String())
 	assert.True(t, v.Activo)
@@ -146,7 +149,7 @@ func TestCrearYListar(t *testing.T) {
 
 	t.Run("patente duplicada", func(t *testing.T) {
 		otro := dbtest.CrearTransportista(t)
-		code, raw := a.llamar(otro, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, "AB123CD"))
+		code, raw := a.llamar(otro, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, patente))
 		assert.Equal(t, http.StatusConflict, code)
 		assert.Equal(t, "patente_duplicada", errorDe(t, raw).Code)
 	})
