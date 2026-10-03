@@ -88,6 +88,12 @@ erDiagram
 - `trg_proteger_alta_documento` (BEFORE INSERT): el documento que carga un usuario nace `pendiente`, sin datos de revisión. `documento_transportista_insert` exige además que `url_archivo` esté bajo el prefijo propio.
 - `trg_recalcular_habilitacion` (AFTER INSERT o UPDATE de `estado`): deriva `transportista.estado_habilitacion_codigo` del último documento de cada tipo (rechazado si alguno está rechazado; habilitado con los cuatro aprobados; un habilitado sigue habilitado mientras una renovación espera revisión; si no, pendiente). `trg_proteger_campos_transportista` deja pasar ese cambio sólo cuando viene de este trigger.
 
+**Solicitudes (D-20, migración `0014`):**
+- `trg_proteger_solicitud` (BEFORE INSERT/UPDATE): el alta de un usuario nace `publicada` y sin las columnas deprecadas; después sólo puede pasar de `publicada` a `cancelada`. Cualquier otro cambio se rechaza (sin edición: se cancela y se publica otra).
+- `trg_proteger_solicitud_objeto` (BEFORE INSERT/UPDATE/DELETE): un usuario no modifica ni borra objetos, y sólo los agrega a una solicitud `publicada` y sin ofertas.
+- `trg_a_copiar_objeto_catalogo` (BEFORE INSERT): un objeto con `objeto_id` copia siempre peso, medidas y restricciones del catálogo (RN-08), aunque se manden otros valores.
+- Estas protecciones miran `current_user = 'authenticated'`: las funciones `SECURITY DEFINER` posteriores (por ejemplo `fn_aceptar_oferta`, módulo 9) no quedan bloqueadas.
+
 ### Dominio 2 — Geografía
 *Cómo se resuelve el matchmaking por zona (RN-04).*
 
@@ -112,7 +118,7 @@ erDiagram
 | Tabla | Rol en el negocio | Columnas propias |
 |---|---|---|
 | `estado_solicitud` | Catálogo: `publicada` / `asignada` / `cancelada` / `expirada`. | — |
-| `solicitud` | Necesidad publicada por el Cliente. `origen_zona_id`/`destino_zona_id` son las FK que RN-04 necesita para el matching; `origen_lat/lng` y `destino_lat/lng` son para el cálculo de distancia (RN-01). El acceso (pisos, ascensor, distancia a pie del vehículo a la puerta) se guarda **por separado para origen y destino** porque afecta distinto a carga y descarga. **No guarda ningún precio:** no hay cotización estimada al publicar. | zonas, direcciones, coordenadas, `pisos_origen`, `ascensor_utilizable_origen`, `distancia_vehiculo_origen_m`, `pisos_destino`, `ascensor_utilizable_destino`, `distancia_vehiculo_destino_m`, `cantidad_ayudantes_solicitados`. *Deprecadas:* `requiere_escalera`, `pisos_escalera`, `cotizacion_estimada_monto` |
+| `solicitud` | Necesidad publicada por el Cliente. `origen_zona_id`/`destino_zona_id` son las FK que RN-04 necesita para el matching; `origen_lat/lng` y `destino_lat/lng` son para el cálculo de distancia (RN-01). El acceso (pisos, ascensor, distancia a pie del vehículo a la puerta) se guarda **por separado para origen y destino** porque afecta distinto a carga y descarga. **No guarda ningún precio:** no hay cotización estimada al publicar. | zonas, direcciones, coordenadas, `fecha_servicio_deseada`, `franja_horaria_inicio`/`franja_horaria_fin` (opcionales, las dos o ninguna; `0014`), `pisos_origen`, `ascensor_utilizable_origen`, `distancia_vehiculo_origen_m`, `pisos_destino`, `ascensor_utilizable_destino`, `distancia_vehiculo_destino_m`, `cantidad_ayudantes_solicitados`. *Deprecadas:* `requiere_escalera`, `pisos_escalera`, `cotizacion_estimada_monto` |
 | `solicitud_objeto` | N:M Solicitud↔Objeto. Soporta tanto ítems del catálogo (`objeto_id`) como carga manual (`nombre_personalizado`) — RF-06 permite ambos modos (CHECK: exactamente uno de los dos). En ambos casos la fila guarda **su propia copia** de peso, dimensiones y restricciones de rotación y apilado, que es lo que usa el cálculo de viajes. | `objeto_id` *(nullable)*, `nombre_personalizado`, `cantidad`, `peso_unitario_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Deprecada:* `volumen_unitario_m3` |
 | `estado_oferta` | Catálogo: `pendiente` / `aceptada` / `no_seleccionada` / `retirada`. | — |
 | `oferta` | Postulación de un Transportista a una Solicitud (RF-17). Solo puede postularse un Transportista **habilitado** (verificado a nivel de policy). Acá se calcula el **único precio** que ve el Cliente (`precio_calculado`) y se guarda su **desglose**, para auditar el precio y para que el `viaje` lo copie al confirmarse: el `viaje` lo crea la sesión del Cliente, que no puede leer `vehiculo_costo`. | `vehiculo_id`, `cantidad_viajes`, `cantidad_ayudantes`, `distancia_km`, `duracion_ruta_h`, `duracion_operacion_h`, `costo_laboral`, `costo_vehiculo`, `costos_adicionales`, `costo_operativo`, `margen_pct`, `precio_neto`, `porcentaje_comision`, `iva_pct`, `precio_calculado`, `estado_codigo` |
@@ -188,7 +194,7 @@ Todas las tablas tienen RLS activo. Filosofía general: **lectura pública** en 
 | `documento_transportista` | — | sube los propios | revisa (aprueba/rechaza) |
 | `zona`, `tipo_vehiculo`, `objeto`, catálogos `estado_*`/`tipo_*` | lectura pública | lectura pública | ABM completo |
 | `transportista_zona` | lectura pública | gestiona las propias | ABM completo |
-| `solicitud` | ve/crea/edita las propias | ve publicadas de su zona + en las que ya se postuló | todo |
+| `solicitud` | ve/crea las propias; sólo puede cancelarlas (sin edición, trigger `0014`) | ve publicadas de su zona + en las que ya se postuló | todo |
 | `solicitud_objeto` | hereda visibilidad de `solicitud` | hereda visibilidad de `solicitud` | todo |
 | `oferta` | ve las de sus solicitudes (**Atención:** todas las columnas, incluido el desglose de costo); acepta/rechaza | crea/ve/retira las propias (requiere estar habilitado) | todo |
 | `viaje` | ve/actualiza el propio | ve/actualiza el propio | todo (campos snapshot protegidos por trigger) |
@@ -235,6 +241,7 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
+| 2026-10-03 | `0014` | Módulo 6: fecha y franja del servicio en `solicitud`; solicitud sin edición, objetos fijos y copia del catálogo por triggers (D-20, RN-08). |
 | 2026-10-03 | `0013` | Módulo 4: `tipo_vehiculo` con medidas estándar y 6 tipos nuevos (D-32); `volumen_estandar_m3` deprecada. |
 | 2026-10-03 | `0012` | Módulo 3: bucket `documentos-transportista` y policies de Storage; alta de documentos protegida; estado de habilitación derivado de los documentos (D-33). |
 | 2026-10-02 | `0010`–`0011` | Módulo 2: corrección de la recursión de RLS entre `solicitud` y `oferta`; trigger de alta en `auth.users` y protecciones de `usuario`, `transportista`, `cliente_insert` y `transportista_insert`. |

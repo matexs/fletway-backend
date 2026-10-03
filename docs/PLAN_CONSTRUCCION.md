@@ -291,6 +291,18 @@ Cada módulo: requisitos, decisiones, base, backend, app y criterio de terminado
 
 ---
 
+### Módulo 15 — Pasada de UI/UX
+
+- **Motivo:** las pantallas se construyen primero funcionales; mientras tanto, cada pantalla nueva
+  cumple la "decoración mínima" del `CLAUDE.md` de mobile (íconos en listas y encabezados, estados
+  vacíos con acción, jerarquía visual). Este módulo pule el conjunto una vez que existen todos los
+  flujos (decidido el 2026-10-03).
+- **App:** navegación inferior por rol; ilustraciones en estados vacíos, login y onboarding;
+  transiciones y animaciones; revisión de jerarquía, espaciados y textos en todas las pantallas;
+  modo oscuro revisado; accesibilidad (tamaños táctiles, contraste, lectores de pantalla).
+- **Terminado:** recorrido completo de Cliente y Transportista revisado en el emulador, sin pantallas
+  "sólo texto".
+
 ## 5. Fuera de esta etapa (D-17)
 
 Notificaciones push (FCM), iOS, web admin en Angular, APIs de mapas, geocodificación y ruteo conectadas (los componentes quedan listos detrás de interfaces), internacionalización, facturación fiscal y preferencias de notificación.

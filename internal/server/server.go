@@ -12,11 +12,13 @@ import (
 	"github.com/matexs/fletway-backend/internal/feature/health"
 	"github.com/matexs/fletway-backend/internal/feature/identidad"
 	"github.com/matexs/fletway-backend/internal/feature/notificacion"
+	"github.com/matexs/fletway-backend/internal/feature/solicitud"
 	"github.com/matexs/fletway-backend/internal/feature/vehiculo"
 	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/auth"
 	"github.com/matexs/fletway-backend/internal/platform/config"
 	"github.com/matexs/fletway-backend/internal/platform/database"
+	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/middleware"
 	"github.com/matexs/fletway-backend/internal/platform/storage"
 )
@@ -29,12 +31,14 @@ type Server struct {
 	jobs     async.Enqueuer
 	verifier *auth.Verifier
 	archivos storage.Firmador
+	geo      geocodificacion.Geocodificador
 }
 
 // New construye el Server con sus dependencias. El verifier de JWT lo crea quien
 // llama (necesita un contexto de vida para refrescar el JWKS); archivos firma las
-// URLs de Storage (D-19).
-func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueuer, verifier *auth.Verifier, archivos storage.Firmador) *Server {
+// URLs de Storage (D-19); geo ubica las direcciones de las solicitudes (D-20).
+func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueuer, verifier *auth.Verifier,
+	archivos storage.Firmador, geo geocodificacion.Geocodificador) *Server {
 	return &Server{
 		cfg:      cfg,
 		log:      log,
@@ -42,6 +46,7 @@ func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueu
 		jobs:     jobs,
 		verifier: verifier,
 		archivos: archivos,
+		geo:      geo,
 	}
 }
 
@@ -79,6 +84,7 @@ func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	vehiculo.Register(apiMux, s.db)
 	geografia.Register(apiMux, s.db)
 	catalogo.Register(apiMux, s.db)
+	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo))
 	habilitacion.Register(apiMux,
 		habilitacion.NewService(s.db, s.archivos, notificacion.NewInApp(s.db), s.jobs))
 }

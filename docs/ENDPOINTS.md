@@ -265,6 +265,95 @@ una solicitud (módulo 6) y los valores se copian a `solicitud_objeto`.
 `alto_m` es el eje vertical; `rotacion_vertical = false` indica que no se puede acostar y
 `apilable = false` que no se le pone carga encima (RN-02).
 
+### Solicitudes (RF-06, D-20)
+
+Ningún endpoint de solicitud calcula ni devuelve un monto (RN-01): el único precio es el de cada
+oferta. Una solicitud no se edita: se cancela y se publica otra (la base lo impone, `0014`).
+"Hoy" y "vencida" se cuentan en hora argentina.
+
+#### `POST /api/solicitudes` (Cliente)
+
+```json
+{
+  "origen":  { "zona_id": "uuid", "direccion": "Av. Centenario 1200", "pisos": 2,
+               "ascensor_utilizable": false, "distancia_vehiculo_m": 15.5 },
+  "destino": { "zona_id": "uuid", "direccion": "Av. Corrientes 3500", "pisos": 5,
+               "ascensor_utilizable": true, "distancia_vehiculo_m": 0 },
+  "fecha_servicio_deseada": "2026-10-12",
+  "franja_horaria_inicio": "09:00",
+  "franja_horaria_fin": "13:00",
+  "cantidad_ayudantes_solicitados": 2,
+  "objetos": [
+    { "objeto_id": "uuid", "cantidad": 1 },
+    { "nombre_personalizado": "Piano vertical", "cantidad": 1, "peso_unitario_kg": 250,
+      "largo_m": 1.5, "ancho_m": 0.6, "alto_m": 1.3,
+      "rotacion_horizontal": true, "rotacion_vertical": false, "apilable": false }
+  ]
+}
+```
+
+- Un objeto del catálogo lleva **sólo** `objeto_id` y `cantidad`: peso, medidas y restricciones los
+  copia la base desde `objeto` (RN-08). Uno manual lleva nombre, peso y las tres medidas; las
+  restricciones son opcionales (por defecto `true`).
+- La franja es opcional (sin franja = "lo antes posible"); si se carga, van las dos horas.
+- Las coordenadas las calcula el backend con el `Geocodificador` (D-20); no se exponen.
+- Reglas: fecha `>= hoy`; dirección de 5 a 200 caracteres; pisos de 0 a 60; distancia a pie de 0 a
+  9999,9 m con 1 decimal; ayudantes de 0 a 3 (informativo, D-20); de 1 a 50 objetos, cantidad de 1 a
+  100; objeto manual: nombre de 2 a 80 caracteres, peso hasta 2000 kg, medidas hasta 10 m, con hasta
+  2 decimales.
+
+`201` con `Solicitud`:
+
+```json
+{
+  "id": "uuid", "estado": "publicada", "fecha_servicio_deseada": "2026-10-12",
+  "franja_horaria_inicio": "09:00", "franja_horaria_fin": "13:00",
+  "origen":  { "zona_id": "uuid", "zona_nombre": "San Isidro", "direccion": "...", "pisos": 2,
+               "ascensor_utilizable": false, "distancia_vehiculo_m": 15.5 },
+  "destino": { "...": "igual que origen" },
+  "cantidad_ayudantes_solicitados": 2,
+  "objetos": [
+    { "id": "uuid", "objeto_id": "uuid | null", "nombre": "Heladera", "cantidad": 1,
+      "peso_unitario_kg": 70, "largo_m": 0.7, "ancho_m": 0.7, "alto_m": 1.8,
+      "rotacion_horizontal": true, "rotacion_vertical": false, "apilable": false }
+  ],
+  "creado_en": "2026-10-10T15:00:00Z"
+}
+```
+
+`estado`: `publicada`, `vencida` (publicada con la fecha ya pasada, calculado al leer), `asignada`,
+`cancelada` o `expirada`.
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `datos_invalidos` | forma inválida (`details` por campo, por ejemplo `objetos[1].largo_m`) |
+| 400 | `json_invalido` | campos desconocidos (por ejemplo, un monto) |
+| 400 | `fecha_pasada` | la fecha es anterior a hoy |
+| 400 | `zona_invalida` / `objeto_invalido` | zona u objeto del catálogo inexistente |
+| 400 | `direccion_no_ubicable` | el `Geocodificador` no ubica la dirección en la zona |
+| 403 | `no_es_cliente` | la cuenta no es de Cliente registrado |
+
+#### `GET /api/solicitudes` (Cliente)
+`200` con las solicitudes propias, las más nuevas primero:
+`[{ "id", "estado", "fecha_servicio_deseada", "franja_horaria_inicio", "franja_horaria_fin",
+"origen_zona_nombre", "destino_zona_nombre", "cantidad_objetos", "creado_en" }]`
+(`cantidad_objetos` suma las cantidades). Error: `403 no_es_cliente`.
+
+#### `GET /api/solicitudes/{id}`
+`200` con `Solicitud` si quien llama la puede ver (RLS: el Cliente dueño, el Administrador y los
+Transportistas de las zonas de origen o destino). Error: `404 solicitud_no_encontrada`.
+
+#### `POST /api/solicitudes/{id}/cancelar` (Cliente dueño)
+Sin costo: todavía no hay compromiso. Las ofertas pendientes pasan a `no_seleccionada`. `200` con
+`Solicitud`. Errores: `404 solicitud_no_encontrada`, `409 solicitud_no_cancelable` (no está
+publicada).
+
+#### `POST /api/solicitudes/{id}/republicar` (Cliente dueño)
+Request `{"fecha_servicio_deseada": "2026-10-20", "franja_horaria_inicio": null,
+"franja_horaria_fin": null}`. Sólo sobre una solicitud vencida: crea una nueva copiando datos y
+objetos; la vencida queda como registro. `201` con la `Solicitud` nueva. Errores:
+`400 fecha_pasada`, `404 solicitud_no_encontrada`, `409 solicitud_no_vencida`.
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -274,10 +363,6 @@ una solicitud (módulo 6) y los valores se copian a `solicitud_objeto`.
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 6 | RF-06 | `POST /api/solicitudes` | Cliente | copia peso, medidas y flags de cada objeto; **no calcula ni devuelve monto** (D-13, D-20) |
-| 6 | RF-06 | `GET /api/solicitudes` · `GET /api/solicitudes/{id}` | Cliente | "vencida" calculada al vuelo (D-20) |
-| 6 | RF-06 | `POST /api/solicitudes/{id}/cancelar` | Cliente | sin costo; ofertas pendientes a `no_seleccionada` |
-| 6 | RF-06 | `POST /api/solicitudes/{id}/republicar` | Cliente | sólo si está vencida; crea una nueva con otra fecha |
 | 7 | RF-17 / RN-04 | `GET /api/transportista/solicitudes` | Transportista | compatibles según D-21, sin vencidas |
 | 8 | RF-17 / RN-01 / RN-02 | `POST /api/solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes` (0..3). Calcula viajes y precio. Si la carga no entra, la ruta no se obtiene o el cálculo vence → error de validación con el motivo, sin oferta |
 | 8 | RF-17 | `POST /api/ofertas/{id}/retirar` · `GET /api/transportista/ofertas` | Transportista | la oferta no se edita: se retira y se crea otra (D-23) |

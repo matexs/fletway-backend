@@ -353,7 +353,10 @@ Recortes deliberados (no olvidos). Constan también como enmiendas en `docs/TRAZ
   `zona` (el mismo que usa el Transportista). La zona no se deriva de coordenadas.
 - **Dirección y coordenadas:** se construye el **componente sin API** (dirección escrita a mano y
   coordenadas provistas por una interfaz `Geocodificador`); el proveedor real (Google Geocoding y
-  mapa) se integra más adelante (D-17).
+  mapa) se integra más adelante (D-17). *Implementación (módulo 6):* `GEOCODIFICADOR_PROVEEDOR`
+  elige el proveedor; en desarrollo, `aproximado` ubica la dirección cerca del centro de su zona
+  piloto con un corrimiento determinístico de hasta 1,5 km. Con `APP_ENV=production` el backend no
+  arranca si no es `google`, igual que el ruteo (A-6).
 - **Sin edición:** para cambiar algo, el Cliente cancela la solicitud
   (`POST /api/solicitudes/{id}/cancelar`, sin costo porque no hay compromiso) y publica otra. Las
   ofertas pendientes de una solicitud cancelada pasan a `no_seleccionada`.

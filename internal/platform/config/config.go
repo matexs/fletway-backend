@@ -19,6 +19,9 @@ type Config struct {
 	Supabase SupabaseConfig
 	Async    AsyncConfig
 	Log      LogConfig
+	// GeocodificadorProveedor elige cómo se obtienen las coordenadas de una
+	// dirección (D-20): "aproximado" (sólo desarrollo) o "google".
+	GeocodificadorProveedor string
 }
 
 type HTTPConfig struct {
@@ -92,6 +95,7 @@ func Load() (Config, error) {
 			Level:  getenv("LOG_LEVEL", "info"),
 			Format: getenv("LOG_FORMAT", "json"),
 		},
+		GeocodificadorProveedor: getenv("GEOCODIFICADOR_PROVEEDOR", "aproximado"),
 	}
 
 	if base := strings.TrimRight(cfg.Supabase.URL, "/"); base != "" {
