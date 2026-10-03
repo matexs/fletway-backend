@@ -14,7 +14,9 @@ var (
 		"la cuenta no tiene perfil de usuario")
 	errRolNoCorresponde = httpx.Conflict("rol_no_corresponde",
 		"la cuenta no tiene el rol de este registro")
-	errCuentaInactiva = httpx.Forbidden("cuenta_inactiva", "la cuenta está desactivada")
+	errCuentaInactiva    = httpx.Forbidden("cuenta_inactiva", "la cuenta está desactivada")
+	errNoEsTransportista = httpx.Forbidden("no_es_transportista",
+		"sólo un Transportista registrado tiene disponibilidad")
 )
 
 // Service implementa el alta de cuenta y el perfil del usuario autenticado (D-18).
@@ -65,4 +67,18 @@ func (s *Service) Registrar(ctx context.Context, id database.Identity, rol strin
 		return Perfil{}, false, err
 	}
 	return p, creada, nil
+}
+
+// CambiarDisponibilidad prende o apaga el interruptor "estoy tomando trabajos"
+// del Transportista (D-21) y devuelve el perfil actualizado. Devuelve
+// no_es_transportista. Escribe en la base.
+func (s *Service) CambiarDisponibilidad(ctx context.Context, id database.Identity, disponible bool) (Perfil, error) {
+	err := s.repo.cambiarDisponible(ctx, id, disponible)
+	if errors.Is(err, errSinTransportista) {
+		return Perfil{}, errNoEsTransportista
+	}
+	if err != nil {
+		return Perfil{}, err
+	}
+	return s.Me(ctx, id)
 }

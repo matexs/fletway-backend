@@ -44,3 +44,23 @@ func (h *handler) registrar(rol string) httpx.Handler {
 		return nil
 	}
 }
+
+func (h *handler) disponibilidad(w http.ResponseWriter, r *http.Request) error {
+	id, ok := auth.FromContext(r.Context())
+	if !ok {
+		return httpx.Unauthorized("no_autenticado", "se requiere un token JWT válido")
+	}
+	var req DisponibilidadRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		return err
+	}
+	if err := req.Validate(); err != nil {
+		return err
+	}
+	p, err := h.svc.CambiarDisponibilidad(r.Context(), id, *req.Disponible)
+	if err != nil {
+		return err
+	}
+	httpx.JSON(w, http.StatusOK, toMeResponse(p))
+	return nil
+}

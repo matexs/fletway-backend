@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/matexs/fletway-backend/internal/feature/geografia"
 	"github.com/matexs/fletway-backend/internal/feature/habilitacion"
 	"github.com/matexs/fletway-backend/internal/feature/health"
 	"github.com/matexs/fletway-backend/internal/feature/identidad"
 	"github.com/matexs/fletway-backend/internal/feature/notificacion"
+	"github.com/matexs/fletway-backend/internal/feature/vehiculo"
 	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/auth"
 	"github.com/matexs/fletway-backend/internal/platform/config"
@@ -73,6 +75,8 @@ func (s *Server) Handler() http.Handler {
 //	oferta.Register(apiMux, s.db)
 func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	identidad.Register(apiMux, s.db)
+	vehiculo.Register(apiMux, s.db)
+	geografia.Register(apiMux, s.db)
 	habilitacion.Register(apiMux,
 		habilitacion.NewService(s.db, s.archivos, notificacion.NewInApp(s.db), s.jobs))
 }

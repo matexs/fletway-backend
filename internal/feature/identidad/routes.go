@@ -19,9 +19,11 @@ import (
 //	GET  /me
 //	POST /auth/registro/cliente
 //	POST /auth/registro/transportista
+//	PUT  /transportista/disponibilidad
 func Register(mux *http.ServeMux, db *database.DB) {
 	h := &handler{svc: NewService(db)}
 	mux.HandleFunc("GET /me", httpx.Wrap(h.me))
 	mux.HandleFunc("POST /auth/registro/cliente", httpx.Wrap(h.registrar(RolCliente)))
 	mux.HandleFunc("POST /auth/registro/transportista", httpx.Wrap(h.registrar(RolTransportista)))
+	mux.HandleFunc("PUT /transportista/disponibilidad", httpx.Wrap(h.disponibilidad))
 }
