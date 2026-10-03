@@ -4,6 +4,9 @@
 --             medidas de los 5 existentes a NULL)
 -- Afecta: objeto (datos + NOT NULL en largo_m, ancho_m y alto_m).
 --
+-- APLICADA el 2026-10-02 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- Completa las medidas de los 5 objetos existentes y suma 23. alto_m es el eje vertical;
 -- rotacion_vertical = false en lo que no se puede acostar; apilable = false en lo frágil o
 -- pesado. volumen_estimado_m3 es NOT NULL: en los INSERT se carga el producto de las medidas.

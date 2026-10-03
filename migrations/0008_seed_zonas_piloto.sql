@@ -3,6 +3,9 @@
 -- Reversible: sí (DELETE FROM zona WHERE nombre IN (...) mientras no haya transportista_zona ni solicitudes que las usen)
 -- Afecta: zona (datos). Sin cambios de esquema ni de RLS.
 --
+-- APLICADA el 2026-10-02 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- Zonas piloto: CABA y Zona Norte del GBA, granularidad partido/localidad. Agregar zonas
 -- después es un ABM del Administrador.
 

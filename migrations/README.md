@@ -12,8 +12,8 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | Migración | Estado | Tema |
 |---|---|---|
 | `0001`–`0007` | Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
-| `0008` | Probada en local; pendiente en `dbFletway` | Seed de las 14 zonas piloto (módulo 0, RN-04). |
-| `0009` | Probada en local; pendiente en `dbFletway` | Catálogo de 28 objetos con medidas y `NOT NULL` en `largo_m`/`ancho_m`/`alto_m` (módulo 0, RN-08). |
+| `0008` | Aplicada 2026-10-02 | Seed de las 14 zonas piloto (módulo 0, RN-04). |
+| `0009` | Aplicada 2026-10-02 | Catálogo de 28 objetos con medidas y `NOT NULL` en `largo_m`/`ancho_m`/`alto_m` (módulo 0, RN-08). |
 
 ## Esquema base y entorno local (D-16)
 
