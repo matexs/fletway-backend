@@ -60,13 +60,15 @@ Readiness (incluye ping a la base). Sin auth. `200 {"status":"ready","db":"ok"}`
   "rol": "cliente | transportista | administrador",
   "activo": true,
   "registro_completo": true,
-  "estado_habilitacion": "pendiente | habilitado | rechazado | null"
+  "estado_habilitacion": "pendiente | habilitado | rechazado | null",
+  "disponible": "true | false | null"
 }
 ```
 
 - `registro_completo`: `false` mientras falte la fila del rol; la app manda al usuario a
   completar el registro.
 - `estado_habilitacion`: sólo para Transportistas registrados; `null` en otro caso.
+- `disponible`: interruptor "estoy tomando trabajos" del Transportista (D-21); `null` en otro caso.
 
 ### `GET /api/me` (RNF-01, D-18)
 Perfil del usuario autenticado. `200` con `Me`.
@@ -172,6 +174,83 @@ Notifica al Transportista (`documentacion_revisada`, en segundo plano) cuando un
 | 404 | `documento_no_encontrado` | el id no existe o está mal formado |
 | 409 | `documento_ya_revisado` | el documento ya no está pendiente |
 
+### Vehículos y costos (RF-18, RN-01, D-32)
+
+Errores de validación de forma: `400 datos_invalidos` con `details` = `{ "<campo>": "<problema>" }`
+(todos los campos con problema a la vez). Montos y medidas son números JSON con hasta 2 decimales
+(D-11); un número mandado como texto es `400 json_invalido`.
+
+#### `GET /api/tipos-vehiculo` (autenticado)
+`200` con la lista de tipos, de menor a mayor capacidad. Las medidas son de referencia: la app las
+propone al registrar un vehículo (D-32).
+
+```json
+[{ "id": "uuid", "nombre": "Furgón chico", "largo_estandar_m": 2.5, "ancho_estandar_m": 1.5,
+   "alto_estandar_m": 1.2, "peso_maximo_estandar_kg": 700 }]
+```
+
+#### `POST /api/transportista/vehiculos` (Transportista)
+Request (medidas útiles de la caja en metros, `peso_maximo_kg` = carga útil):
+
+```json
+{ "tipo_vehiculo_id": "uuid", "patente": "AB123CD", "marca": "Renault", "modelo": "Kangoo",
+  "largo_util_m": 2.4, "ancho_util_m": 1.45, "alto_util_m": 1.15, "peso_maximo_kg": 650 }
+```
+
+La patente se normaliza (mayúsculas, sin espacios ni guiones) y tiene que ser `AAA999` o
+`AA999AA`. Rangos: largo `(0, 20]`, ancho `(0, 3]`, alto `(0, 5]`, peso `(0, 40000]`. `marca` y
+`modelo` son opcionales (hasta 60 caracteres). `201` con `Vehiculo`:
+
+```json
+{ "id": "uuid", "tipo_vehiculo_id": "uuid", "tipo_vehiculo_nombre": "Furgón chico",
+  "patente": "AB123CD", "marca": "Renault", "modelo": "Kangoo",
+  "largo_util_m": 2.4, "ancho_util_m": 1.45, "alto_util_m": 1.15, "peso_maximo_kg": 650,
+  "activo": true, "tiene_costos": false, "creado_en": "2026-10-03T12:00:00Z" }
+```
+
+Errores: `400 datos_invalidos`, `400 tipo_vehiculo_invalido`, `403 no_es_transportista`,
+`409 patente_duplicada`.
+
+#### `GET /api/transportista/vehiculos` (Transportista)
+`200` con la lista de `Vehiculo` propios (activos primero). Error: `403 no_es_transportista`.
+
+#### `PUT /api/transportista/vehiculos/{id}/activo` (Transportista)
+Request `{"activo": false}`. `200` con `Vehiculo`. Un vehículo inactivo no cuenta para el
+matchmaking ni para ofertar (D-21). Errores: `400 datos_incompletos`, `404 vehiculo_no_encontrado`
+(no existe o no es propio).
+
+#### `PUT /api/transportista/vehiculos/{id}/costos` y `GET` (Transportista dueño)
+Segundo paso del alta: los costos operativos que usa el precio de cada oferta (RN-01,
+`ALGORITMO_COTIZACION.md` §4.2). El `PUT` crea o reemplaza. Sólo los leen el dueño y el
+Administrador. Request y respuesta (la respuesta suma `actualizado_en`):
+
+```json
+{ "combustible_precio_l": 1350.5, "rendimiento_km_l": 9.5, "cantidad_neumaticos": 4,
+  "costo_neumatico": 185000, "vida_neumatico_km": 50000, "costo_mantenimiento_km": 45.75,
+  "valor_compra": 28000000, "valor_residual": 9000000, "vida_util_km": 400000,
+  "seguro_mensual": 95000, "patente_mensual": 38000 }
+```
+
+Reglas: montos `>= 0` con hasta 2 decimales; `rendimiento_km_l > 0`; `cantidad_neumaticos` de 1
+a 30; `vida_neumatico_km` y `vida_util_km` enteros `> 0`; `valor_residual <= valor_compra`.
+Errores: `400 datos_invalidos`, `404 vehiculo_no_encontrado`, `404 costos_no_cargados` (sólo el
+`GET`).
+
+### Zonas y disponibilidad (RN-04, D-21)
+
+#### `GET /api/zonas` (autenticado)
+`200` con `[{ "id": "uuid", "nombre": "San Isidro", "provincia": "Buenos Aires" }]`, ordenado por
+provincia y nombre.
+
+#### `GET /api/transportista/zonas` y `PUT /api/transportista/zonas` (Transportista)
+`{"zona_ids": ["uuid", ...]}` en los dos sentidos. El `PUT` reemplaza el conjunto completo (puede
+ser vacío, hasta 50, sin repetidos). Errores: `400 datos_incompletos`, `400 datos_invalidos`,
+`400 zona_invalida`, `403 no_es_transportista`.
+
+#### `PUT /api/transportista/disponibilidad` (Transportista)
+Request `{"disponible": true}`. `200` con `Me`. Errores: `400 datos_incompletos`,
+`403 no_es_transportista`.
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -181,10 +260,6 @@ Notifica al Transportista (`documentacion_revisada`, en segundo plano) cuando un
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 4 | RF-18 | `POST /api/transportista/vehiculos` · `GET /api/transportista/vehiculos` | Transportista | medidas útiles + peso (carga útil) |
-| 4 | RF-18 | `PUT /api/transportista/vehiculos/{id}/costos` | Transportista | fila de `vehiculo_costo`; sin ella no se puede ofertar con ese vehículo |
-| 4 | RN-04 | `GET /api/zonas` · `PUT /api/transportista/zonas` | autenticado / Transportista | catálogo de zonas y selección múltiple |
-| 4 | RN-05 | `PUT /api/transportista/disponibilidad` | Transportista | interruptor manual (D-21) |
 | 5 | RN-08 | `GET /api/catalogo/objetos` | autenticado | catálogo con medidas y flags |
 | 6 | RF-06 | `POST /api/solicitudes` | Cliente | copia peso, medidas y flags de cada objeto; **no calcula ni devuelve monto** (D-13, D-20) |
 | 6 | RF-06 | `GET /api/solicitudes` · `GET /api/solicitudes/{id}` | Cliente | "vencida" calculada al vuelo (D-20) |

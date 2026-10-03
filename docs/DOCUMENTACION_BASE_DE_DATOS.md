@@ -101,7 +101,7 @@ erDiagram
 
 | Tabla | Rol en el negocio | Columnas propias |
 |---|---|---|
-| `tipo_vehiculo` | Catálogo de capacidades **estándar** por tipo. La ERS (RN-02) pide calcular cubicaje "para cada posible vehículo" antes de que haya uno asignado; en el diseño vigente el cálculo de viajes corre sobre el `vehiculo` real al ofertar (ver `ALGORITMO_VIAJES_EMPAQUETADO.md` §7). No tiene dimensiones, así que sólo sirve para cotas de peso y volumen. | `nombre`, `volumen_estandar_m3`, `peso_maximo_estandar_kg` |
+| `tipo_vehiculo` | Catálogo de capacidades **estándar** por tipo (6 tipos desde la migración `0013`, D-32). Las medidas son de referencia: la app las propone al registrar un vehículo y el Transportista las corrige; el cálculo de viajes y el matchmaking usan siempre las del `vehiculo` real (ver `ALGORITMO_VIAJES_EMPAQUETADO.md` §7). | `nombre`, `largo_estandar_m`, `ancho_estandar_m`, `alto_estandar_m`, `peso_maximo_estandar_kg`. *Deprecada:* `volumen_estandar_m3` (derivable de las medidas) |
 | `vehiculo` | Vehículo real de un Transportista (puede tener más de uno — 1:N, cardinalidad no fijada por la ERS). Las dimensiones útiles alimentan el empaquetado 3D (RN-02). `peso_maximo_kg` es **carga útil** (no peso bruto). | `patente`, `marca`, `modelo`, `largo_util_m`, `ancho_util_m`, `alto_util_m`, `peso_maximo_kg`, `activo`. *Deprecada:* `volumen_carga_m3` (nullable, derivable de las dimensiones) |
 | `vehiculo_costo` | Variables de costo del vehículo real para el precio (RN-01): consumo, neumáticos, mantenimiento, depreciación, seguro y patente. 1:1 con `vehiculo` (PK = `vehiculo_id`, `ON DELETE CASCADE`). Está separada de `vehiculo` porque `vehiculo` es de lectura pública y estos datos son financieros y privados del Transportista. | `combustible_precio_l`, `rendimiento_km_l`, `cantidad_neumaticos`, `costo_neumatico`, `vida_neumatico_km`, `costo_mantenimiento_km`, `valor_compra`, `valor_residual`, `vida_util_km`, `seguro_mensual`, `patente_mensual`, `actualizado_en` |
 | `objeto` | Catálogo de objetos comunes para cotización (RN-08 en la versión vigente de la ERS). Las medidas son obligatorias desde la migración `0009` (2026-10-02). `alto_m` es el eje vertical. | `nombre`, `peso_estimado_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Redundante:* `volumen_estimado_m3` |
@@ -206,6 +206,7 @@ Todas las tablas tienen RLS activo. Filosofía general: **lectura pública** en 
 Todas las políticas usan `(select auth.uid())` (no `auth.uid()` directo) para que el planner de Postgres lo evalúe una sola vez por consulta en vez de por fila — recomendación estándar de performance de Supabase para RLS a escala.
 
 **Riesgos conocidos, sin resolver:**
+- `vehiculo_select` es `USING (true)`: cualquier usuario autenticado lee la **patente** de cualquier vehículo. El plan pide mostrarla recién después de aceptar la oferta (módulo 9); hoy sólo lo respeta la API.
 - `oferta_select` y `viaje_select` le dejan al Cliente leer **todas** las columnas, incluidos `costo_operativo` y el desglose. La regla "el Cliente sólo ve el precio final" hoy la cumple sólo la API del backend, no la base.
 - `oferta_update` deja a Cliente y Transportista modificar cualquier columna de la oferta, incluido `precio_calculado`. No hay trigger de protección como en `viaje` y `transportista`.
 
@@ -234,6 +235,7 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
+| 2026-10-03 | `0013` | Módulo 4: `tipo_vehiculo` con medidas estándar y 6 tipos nuevos (D-32); `volumen_estandar_m3` deprecada. |
 | 2026-10-03 | `0012` | Módulo 3: bucket `documentos-transportista` y policies de Storage; alta de documentos protegida; estado de habilitación derivado de los documentos (D-33). |
 | 2026-10-02 | `0010`–`0011` | Módulo 2: corrección de la recursión de RLS entre `solicitud` y `oferta`; trigger de alta en `auth.users` y protecciones de `usuario`, `transportista`, `cliente_insert` y `transportista_insert`. |
 

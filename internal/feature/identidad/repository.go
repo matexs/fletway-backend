@@ -17,6 +17,9 @@ const (
 	RolAdministrador = "administrador"
 )
 
+// errSinTransportista indica que la cuenta no tiene fila transportista.
+var errSinTransportista = errors.New("identidad: la cuenta no es de Transportista")
+
 // errSinUsuario indica que el usuario de Auth no tiene fila en usuario (no pasó por el
 // trigger de alta, D-18).
 var errSinUsuario = errors.New("identidad: usuario sin fila en la tabla usuario")
@@ -33,6 +36,8 @@ type Perfil struct {
 	RegistroCompleto bool
 	// EstadoHabilitacion sólo tiene valor para un Transportista registrado.
 	EstadoHabilitacion *string
+	// Disponible sólo tiene valor para un Transportista registrado.
+	Disponible *bool
 }
 
 type repository struct {
@@ -50,14 +55,15 @@ func (r *repository) perfil(ctx context.Context, id database.Identity) (Perfil, 
 			         WHEN 'transportista' THEN t.usuario_id IS NOT NULL
 			         ELSE a.usuario_id IS NOT NULL
 			       END,
-			       CASE WHEN u.rol = 'transportista' THEN t.estado_habilitacion_codigo END
+			       CASE WHEN u.rol = 'transportista' THEN t.estado_habilitacion_codigo END,
+			       CASE WHEN u.rol = 'transportista' THEN t.disponible END
 			FROM usuario u
 			LEFT JOIN cliente c ON c.usuario_id = u.id
 			LEFT JOIN transportista t ON t.usuario_id = u.id
 			LEFT JOIN administrador a ON a.usuario_id = u.id
 			WHERE u.id = (select auth.uid())`,
 		).Scan(&p.UsuarioID, &p.Email, &p.NombreCompleto, &p.Telefono, &p.Rol, &p.Activo,
-			&p.RegistroCompleto, &p.EstadoHabilitacion)
+			&p.RegistroCompleto, &p.EstadoHabilitacion, &p.Disponible)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Perfil{}, errSinUsuario
@@ -91,4 +97,24 @@ func (r *repository) crearFilaDeRol(ctx context.Context, id database.Identity, r
 		return false, fmt.Errorf("crear fila de %s: %w", rol, err)
 	}
 	return creada, nil
+}
+
+// cambiarDisponible actualiza transportista.disponible del usuario. Devuelve
+// errSinTransportista si no tiene fila transportista.
+func (r *repository) cambiarDisponible(ctx context.Context, id database.Identity, disponible bool) error {
+	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE transportista SET disponible = $1
+			WHERE usuario_id = (select auth.uid())`, disponible)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return errSinTransportista
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("cambiar disponibilidad: %w", err)
+	}
+	return nil
 }

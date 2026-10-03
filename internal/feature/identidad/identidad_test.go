@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -35,6 +36,17 @@ func nuevaAPI(t *testing.T, db *database.DB) *api {
 func (a *api) llamar(id database.Identity, metodo, path string) (int, map[string]any) {
 	a.t.Helper()
 	r := httptest.NewRequest(metodo, path, nil)
+	r = r.WithContext(auth.WithIdentity(r.Context(), id))
+	w := httptest.NewRecorder()
+	a.mux.ServeHTTP(w, r)
+	var body map[string]any
+	require.NoError(a.t, json.Unmarshal(w.Body.Bytes(), &body))
+	return w.Code, body
+}
+
+func (a *api) llamarConBody(id database.Identity, metodo, path, cuerpo string) (int, map[string]any) {
+	a.t.Helper()
+	r := httptest.NewRequest(metodo, path, strings.NewReader(cuerpo))
 	r = r.WithContext(auth.WithIdentity(r.Context(), id))
 	w := httptest.NewRecorder()
 	a.mux.ServeHTTP(w, r)
@@ -231,4 +243,35 @@ func TestPoliciesSinRecursion(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestDisponibilidad(t *testing.T) {
+	db := dbtest.Abrir(t)
+	a := nuevaAPI(t, db)
+	transportista := dbtest.CrearTransportista(t)
+
+	code, body := a.llamar(transportista, "GET", "/me")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, true, body["disponible"], "nace disponible")
+
+	code, body = a.llamarConBody(transportista, "PUT", "/transportista/disponibilidad", `{"disponible": false}`)
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, false, body["disponible"])
+
+	code, body = a.llamar(transportista, "GET", "/me")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, false, body["disponible"])
+
+	cliente := dbtest.CrearUsuario(t, identidad.RolCliente)
+	code, body = a.llamar(cliente, "GET", "/me")
+	require.Equal(t, http.StatusOK, code)
+	assert.Nil(t, body["disponible"], "sólo para Transportistas")
+
+	code, body = a.llamarConBody(cliente, "PUT", "/transportista/disponibilidad", `{"disponible": true}`)
+	assert.Equal(t, http.StatusForbidden, code)
+	assert.Equal(t, "no_es_transportista", codigoDeError(t, body))
+
+	code, body = a.llamarConBody(transportista, "PUT", "/transportista/disponibilidad", `{}`)
+	assert.Equal(t, http.StatusBadRequest, code)
+	assert.Equal(t, "datos_incompletos", codigoDeError(t, body))
 }
