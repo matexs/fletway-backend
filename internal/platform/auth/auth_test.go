@@ -72,7 +72,8 @@ func TestVerify(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := v.Verify(context.Background(), tc.token())
+			token := tc.token()
+			id, err := v.Verify(context.Background(), token)
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
 				return
@@ -81,6 +82,7 @@ func TestVerify(t *testing.T) {
 			assert.Equal(t, sub, id.UserID)
 			assert.Equal(t, "authenticated", id.Role)
 			assert.Equal(t, "usuario@ejemplo.com", id.Email)
+			assert.Equal(t, token, id.AccessToken)
 			var claims jwt.MapClaims
 			require.NoError(t, json.Unmarshal([]byte(id.RawClaims), &claims))
 			assert.Equal(t, sub, claims["sub"])
