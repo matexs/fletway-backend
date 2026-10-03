@@ -33,7 +33,7 @@ Surgieron al incorporar las soluciones y quedaron resueltos con el equipo:
 1. **Supabase local (D-16):** requiere Docker y Supabase CLI. La configuración está en `supabase/config.toml` (con firma ES256 local, D-04) y el esquema base en `migrations/baseline/` (dump de `dbFletway`, sólo lectura, que ya incluye `0001`–`0007`). **`make db-local`** genera la clave local si falta, levanta el stack, resetea la base y aplica el esquema base más las migraciones posteriores. `make test-integracion` corre los tests contra esa base (`TEST_DATABASE_URL`).
 2. **Credenciales (D-16):** `.env` de los dos repos para el entorno local, desde el gestor de contraseñas del equipo. Las de producción (Render) se definen cuando se haga el despliegue, fuera de esta etapa.
 3. **Branch protection (D-31):** en GitHub, para `main` de los dos repos, "Require a pull request before merging" con 1 aprobación.
-4. **Primer Administrador (D-18):** crear el usuario en Supabase Auth y sus filas `usuario` (rol `administrador`) y `administrador` por SQL, con confirmación humana, una única vez. Se hace al terminar el módulo 2 (necesita el trigger de alta).
+4. **Primer Administrador (D-18):** crear el usuario en Supabase Auth y sus filas `usuario` (rol `administrador`) y `administrador` por SQL, con confirmación humana, una única vez. Se hace al terminar el módulo 2 (necesita el trigger de alta). **Hecho el 2026-10-02:** como el trigger rechaza `rol=administrador` y el dashboard no carga metadata, el alta se hace con un signUp con `rol=cliente` y después el SQL cambia `usuario.rol` y crea la fila `administrador`.
 
 ---
 

@@ -5,8 +5,8 @@
 > Dart en sincronía. Cuando agregues o cambies un endpoint, actualizá acá **primero**.
 
 **Base URL:** local `http://localhost:8080`; producción, la URL de Render (D-16). Las rutas de negocio van bajo **`/api`** (D-11); los health checks, en la raíz.
-**Versión de contrato:** `v0` (draft — nada implementado todavía)
-**Última actualización:** 2026-10-01
+**Versión de contrato:** `v0` (draft)
+**Última actualización:** 2026-10-02
 
 ---
 
@@ -38,6 +38,61 @@ Liveness. Sin auth. `200 {"status":"ok"}`.
 Readiness (incluye ping a la base). Sin auth. `200 {"status":"ready","db":"ok"}` /
 `503` si la base no responde.
 
+### Alta de cuenta (D-18)
+
+1. La app hace `signUp` en Supabase Auth con email, contraseña y la metadata
+   `{"rol": "cliente" | "transportista", "nombre_completo": "...", "telefono": "..."}`.
+   El trigger `trg_alta_usuario` crea la fila `usuario`. Si `rol` no es `cliente` ni
+   `transportista`, o faltan `nombre_completo` o `telefono`, el `signUp` falla y no se crea la
+   cuenta.
+2. Con la sesión obtenida, la app llama al endpoint de registro de su rol.
+3. Desde ahí, el rol y el estado de la cuenta salen siempre de `GET /api/me`, nunca de
+   `user_metadata`.
+
+#### Respuesta `Me` (común a los tres endpoints)
+
+```json
+{
+  "usuario_id": "uuid",
+  "email": "cliente@ejemplo.com",
+  "nombre_completo": "Clara Cliente",
+  "telefono": "1144440000",
+  "rol": "cliente | transportista | administrador",
+  "activo": true,
+  "registro_completo": true,
+  "estado_habilitacion": "pendiente | habilitado | rechazado | null"
+}
+```
+
+- `registro_completo`: `false` mientras falte la fila del rol; la app manda al usuario a
+  completar el registro.
+- `estado_habilitacion`: sólo para Transportistas registrados; `null` en otro caso.
+
+### `GET /api/me` (RNF-01, D-18)
+Perfil del usuario autenticado. `200` con `Me`.
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 401 | `no_autenticado` / `token_invalido` | sin JWT o JWT inválido |
+| 404 | `usuario_no_encontrado` | el usuario de Auth no tiene fila `usuario` |
+
+### `POST /api/auth/registro/cliente` (RF-05)
+Crea la fila `cliente` del usuario autenticado. Sin body. `201` con `Me` si la creó; `200`
+con `Me` si ya existía (se puede reintentar).
+
+### `POST /api/auth/registro/transportista` (RF-16)
+Crea la fila `transportista` en estado `pendiente` (la habilitación es el módulo 3). Sin body.
+`201` / `200` como el de Cliente.
+
+Errores de los dos registros:
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 401 | `no_autenticado` / `token_invalido` | sin JWT o JWT inválido |
+| 403 | `cuenta_inactiva` | `usuario.activo = false` |
+| 404 | `usuario_no_encontrado` | el usuario de Auth no tiene fila `usuario` |
+| 409 | `rol_no_corresponde` | el rol del endpoint no es el de `usuario.rol` (un rol por cuenta, D-17) |
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -47,9 +102,6 @@ Readiness (incluye ping a la base). Sin auth. `200 {"status":"ready","db":"ok"}`
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 2 | RF-05 | `POST /api/auth/registro/cliente` | Cliente | después del `signUp` en Supabase Auth; crea la fila `cliente` (D-18) |
-| 2 | RF-16 | `POST /api/auth/registro/transportista` | Transportista | crea `transportista` en estado `pendiente` |
-| 2 | RNF-01 | `GET /api/me` | autenticado | `usuario_id`, `email`, `nombre_completo`, `rol`, `estado_habilitacion` (Transportista). Fuente del rol para la app (D-18) |
 | 3 | RF-16 | `POST /api/transportista/documentos` · `GET /api/transportista/documentos` | Transportista | registra el path del archivo ya subido a Storage (D-19) |
 | 3 | RF-01 | `GET /api/admin/transportistas?estado=pendiente` | Administrador | operado desde Postman (D-17) |
 | 3 | RF-01 | `POST /api/admin/documentos/{id}/aprobar` · `/rechazar` | Administrador | rechazo con motivo; notificación `documentacion_revisada` |
