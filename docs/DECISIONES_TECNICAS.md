@@ -47,6 +47,7 @@
 | D-30 | Aplicación del veto | CONFIRMADA (2026-10-01) |
 | D-31 | Proceso: revisión de PRs, definición de terminado y casos de prueba | CONFIRMADA (2026-10-01) |
 | D-32 | `tipo_vehiculo` con medidas estándar de referencia | CONFIRMADA (2026-10-01) |
+| D-33 | Cierre de la revisión de documentación del Transportista | CONFIRMADA (2026-10-03) |
 
 ---
 
@@ -571,3 +572,25 @@ Cierra las ambigüedades de `ALGORITMO_COTIZACION.md` §4.3/§4.4 y de
   **vehículo real** (`vehiculo.largo_util_m`, `ancho_util_m`, `alto_util_m`).
 - Se aplica en el módulo 4.
 
+---
+
+## D-33 — Cierre de la revisión de documentación · CONFIRMADA (2026-10-03)
+
+RF-01 dice que el Administrador aprueba o rechaza la habilitación; el plan lo resuelve por
+documento. Esta decisión fija cuándo cambia el estado de la cuenta.
+
+- **Documentos obligatorios:** los cuatro de `tipo_documento` (DNI, seguro, registro y VTV), los
+  que enumera la ERS. Cuenta el **último** documento cargado de cada tipo.
+- **Rechazo inmediato:** apenas el Administrador rechaza un documento, el Transportista pasa a
+  `rechazado` y recibe la notificación `documentacion_revisada` con el motivo. No se espera a
+  revisar los demás.
+- **Nueva carga:** si estaba `rechazado` y vuelve a cargar el documento rechazado, pasa a
+  `pendiente`. Sin límite de reintentos (RF-01).
+- **Habilitación:** cuando el último documento de los cuatro tipos está aprobado, pasa a
+  `habilitado` y se le notifica. Aprobar documentos sueltos no notifica.
+- **Renovación:** un Transportista `habilitado` que carga un documento nuevo sigue habilitado
+  mientras espera la revisión; si se lo rechazan, pasa a `rechazado`.
+- **Dónde vive:** la base deriva el estado de los documentos (`trg_recalcular_habilitacion`,
+  migración `0012`), así que ni la API ni PostgREST pueden saltearlo.
+- **Archivos para el Administrador:** el listado de revisión trae una URL firmada por documento,
+  que vence a los 10 minutos (D-19), pedida a Storage con el JWT del Administrador.

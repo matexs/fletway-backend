@@ -92,7 +92,7 @@ func (v *Verifier) Verify(ctx context.Context, token string) (database.Identity,
 	}
 	role, _ := claims["role"].(string)
 	email, _ := claims["email"].(string)
-	return database.Identity{UserID: sub, Role: role, Email: email, RawClaims: string(raw)}, nil
+	return database.Identity{UserID: sub, Role: role, Email: email, RawClaims: string(raw), AccessToken: token}, nil
 }
 
 // BearerToken extrae el token del header Authorization. Devuelve ErrNoToken si

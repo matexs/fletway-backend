@@ -78,6 +78,10 @@ type Identity struct {
 	// RawClaims es el JSON de los claims, que se carga en request.jwt.claims
 	// para que auth.uid() y las policies lo lean.
 	RawClaims string
+	// AccessToken es el JWT original. Sólo para llamar a otras APIs de Supabase
+	// en nombre del usuario (por ejemplo, firmar URLs de Storage, D-19); nunca se
+	// loguea ni se persiste.
+	AccessToken string
 }
 
 // WithinTx ejecuta fn dentro de una transacción con el contexto RLS del usuario:

@@ -93,6 +93,85 @@ Errores de los dos registros:
 | 404 | `usuario_no_encontrado` | el usuario de Auth no tiene fila `usuario` |
 | 409 | `rol_no_corresponde` | el rol del endpoint no es el de `usuario.rol` (un rol por cuenta, D-17) |
 
+### Documentación del Transportista (RF-16, RF-01, D-19, D-33)
+
+La app sube cada archivo **directo a Supabase Storage**, bucket privado `documentos-transportista`,
+con el path `transportista/{usuario_id}/{nombre}` (jpg, png o pdf de hasta 10 MB). Después lo
+registra en el backend. El estado de habilitación lo calcula la base (D-33).
+
+#### Respuesta `Documento`
+
+```json
+{
+  "id": "uuid",
+  "tipo_documento_codigo": "dni | registro | seguro | vtv",
+  "estado": "pendiente | aprobado | rechazado",
+  "motivo_rechazo": "texto | null",
+  "cargado_en": "2026-10-03T01:09:43Z",
+  "revisado_en": "2026-10-03T01:09:52Z | null",
+  "url": "URL firmada, sólo para el Administrador (vence a los 10 minutos)"
+}
+```
+
+#### `POST /api/transportista/documentos` (RF-16)
+Request: `{"tipo_documento_codigo": "dni", "path": "transportista/{usuario_id}/dni-....pdf"}`.
+`201` con `Documento` (siempre `pendiente`).
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `datos_incompletos` | falta el tipo o el path |
+| 400 | `tipo_documento_invalido` | el tipo no es dni, registro, seguro ni vtv |
+| 400 | `path_invalido` | el path no está bajo `transportista/{tu usuario_id}/` |
+| 400 | `archivo_no_encontrado` | no hay un objeto subido en ese path |
+| 403 | `no_es_transportista` | la cuenta no es de Transportista registrado |
+
+#### `GET /api/transportista/documentos` (RF-16, RF-01)
+`200`:
+
+```json
+{
+  "estado_habilitacion": "pendiente | habilitado | rechazado",
+  "documentos": [
+    { "tipo_documento_codigo": "dni", "descripcion": "Documento Nacional de Identidad", "ultimo": "Documento | null" }
+  ]
+}
+```
+
+Un elemento por tipo requerido, en orden fijo, con el último documento cargado. Error: `403
+no_es_transportista`.
+
+#### `GET /api/admin/transportistas` (RF-01, Administrador)
+Sin parámetros: los Transportistas con algún documento `pendiente` (incluye renovaciones de
+habilitados). Con `?estado=pendiente|habilitado|rechazado`: los de ese estado de habilitación.
+`200` con una lista de:
+
+```json
+{
+  "usuario_id": "uuid", "nombre_completo": "...", "email": "...", "telefono": "...",
+  "estado_habilitacion": "pendiente",
+  "documentos": [ "igual que en GET /api/transportista/documentos, con url en cada Documento" ]
+}
+```
+
+Errores: `400 estado_invalido`, `403 requiere_administrador`.
+
+#### `POST /api/admin/documentos/{id}/aprobar` y `/rechazar` (RF-01, Administrador)
+`rechazar` lleva `{"motivo": "..."}` (1 a 500 caracteres). `200`:
+
+```json
+{ "documento": "Documento", "estado_habilitacion": "estado del Transportista después de revisar" }
+```
+
+Notifica al Transportista (`documentacion_revisada`, en segundo plano) cuando un rechazo lo deja
+`rechazado` (con el motivo) o cuando queda `habilitado`.
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `motivo_requerido` / `motivo_demasiado_largo` | rechazo sin motivo o con más de 500 caracteres |
+| 403 | `requiere_administrador` | quien llama no es Administrador |
+| 404 | `documento_no_encontrado` | el id no existe o está mal formado |
+| 409 | `documento_ya_revisado` | el documento ya no está pendiente |
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -102,9 +181,6 @@ Errores de los dos registros:
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 3 | RF-16 | `POST /api/transportista/documentos` · `GET /api/transportista/documentos` | Transportista | registra el path del archivo ya subido a Storage (D-19) |
-| 3 | RF-01 | `GET /api/admin/transportistas?estado=pendiente` | Administrador | operado desde Postman (D-17) |
-| 3 | RF-01 | `POST /api/admin/documentos/{id}/aprobar` · `/rechazar` | Administrador | rechazo con motivo; notificación `documentacion_revisada` |
 | 4 | RF-18 | `POST /api/transportista/vehiculos` · `GET /api/transportista/vehiculos` | Transportista | medidas útiles + peso (carga útil) |
 | 4 | RF-18 | `PUT /api/transportista/vehiculos/{id}/costos` | Transportista | fila de `vehiculo_costo`; sin ella no se puede ofertar con ese vehículo |
 | 4 | RN-04 | `GET /api/zonas` · `PUT /api/transportista/zonas` | autenticado / Transportista | catálogo de zonas y selección múltiple |
