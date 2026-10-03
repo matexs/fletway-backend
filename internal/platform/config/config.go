@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -37,13 +38,16 @@ type DatabaseConfig struct {
 // SupabaseConfig agrupa lo necesario para verificar el JWT de Supabase (D-04)
 // y para las llamadas puntuales a su API.
 type SupabaseConfig struct {
-	URL              string
-	AnonKey          string
-	ServiceRoleKey   string // NO usar en operación normal (D-02).
+	URL            string
+	AnonKey        string
+	ServiceRoleKey string // NO usar en operación normal (D-02).
+	// JWKSURL es el endpoint de claves públicas. Si no se configura, se deriva
+	// de URL (<URL>/auth/v1/.well-known/jwks.json).
 	JWKSURL          string
-	JWTSecret        string // fallback HS256 legacy.
 	ExpectedAudience string
-	ExpectedIssuer   string
+	// ExpectedIssuer es el emisor esperado del JWT. Si no se configura, se deriva
+	// de URL (<URL>/auth/v1).
+	ExpectedIssuer string
 }
 
 type AsyncConfig struct {
@@ -77,7 +81,6 @@ func Load() (Config, error) {
 			AnonKey:          os.Getenv("SUPABASE_ANON_KEY"),
 			ServiceRoleKey:   os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
 			JWKSURL:          os.Getenv("SUPABASE_JWKS_URL"),
-			JWTSecret:        os.Getenv("SUPABASE_JWT_SECRET"),
 			ExpectedAudience: getenv("JWT_EXPECTED_AUDIENCE", "authenticated"),
 			ExpectedIssuer:   os.Getenv("JWT_EXPECTED_ISSUER"),
 		},
@@ -89,6 +92,15 @@ func Load() (Config, error) {
 			Level:  getenv("LOG_LEVEL", "info"),
 			Format: getenv("LOG_FORMAT", "json"),
 		},
+	}
+
+	if base := strings.TrimRight(cfg.Supabase.URL, "/"); base != "" {
+		if cfg.Supabase.JWKSURL == "" {
+			cfg.Supabase.JWKSURL = base + "/auth/v1/.well-known/jwks.json"
+		}
+		if cfg.Supabase.ExpectedIssuer == "" {
+			cfg.Supabase.ExpectedIssuer = base + "/auth/v1"
+		}
 	}
 
 	if cfg.Env != "development" && cfg.Database.URL == "" {

@@ -58,10 +58,9 @@ Structs de request y response con tags `json`. Reglas:
 ```go
 func (r *Repo) Crear(ctx context.Context, id database.Identity, in CrearParams) (Row, error) {
     var out Row
-    err := r.db.WithinTx(ctx, id, func(tx any) error {
-        // t := tx.(pgx.Tx)  // cuando pgx esté cableado
-        // queries acá — RLS ya está aplicado por WithinTx (SET LOCAL ...)
-        return nil
+    err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
+        // queries acá: el rol authenticated y los claims ya están aplicados.
+        return tx.QueryRow(ctx, `SELECT ...`, args...).Scan(&out.Campo)
     })
     return out, err
 }

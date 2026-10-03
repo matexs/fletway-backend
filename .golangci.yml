@@ -22,13 +22,6 @@ linters:
       rules:
         - name: exported
           disabled: true   # comentarios en español; no forzar el godoc en inglés
-  exclusions:
-    rules:
-      # El skeleton tiene funciones sin cuerpo real todavía.
-      - path: internal/platform/(database|auth)/
-        linters:
-          - unused
-          - revive
 
 formatters:
   enable:

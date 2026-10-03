@@ -8,8 +8,8 @@ package health
 import (
 	"net/http"
 
-	"github.com/fletway/fletway-backend/internal/platform/database"
-	"github.com/fletway/fletway-backend/internal/platform/httpx"
+	"github.com/matexs/fletway-backend/internal/platform/database"
+	"github.com/matexs/fletway-backend/internal/platform/httpx"
 )
 
 // Register monta GET /healthz y GET /readyz en el mux público.
