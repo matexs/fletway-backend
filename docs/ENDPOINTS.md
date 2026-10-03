@@ -251,6 +251,20 @@ ser vacío, hasta 50, sin repetidos). Errores: `400 datos_incompletos`, `400 dat
 Request `{"disponible": true}`. `200` con `Me`. Errores: `400 datos_incompletos`,
 `403 no_es_transportista`.
 
+### Catálogo de objetos (RN-08)
+
+#### `GET /api/catalogo/objetos` (autenticado)
+`200` con el catálogo completo (28 objetos), ordenado por nombre. El Cliente elige de acá al publicar
+una solicitud (módulo 6) y los valores se copian a `solicitud_objeto`.
+
+```json
+[{ "id": "uuid", "nombre": "Heladera", "peso_estimado_kg": 70, "largo_m": 0.7, "ancho_m": 0.7,
+   "alto_m": 1.8, "rotacion_horizontal": true, "rotacion_vertical": false, "apilable": false }]
+```
+
+`alto_m` es el eje vertical; `rotacion_vertical = false` indica que no se puede acostar y
+`apilable = false` que no se le pone carga encima (RN-02).
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -260,7 +274,6 @@ Request `{"disponible": true}`. `200` con `Me`. Errores: `400 datos_incompletos`
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 5 | RN-08 | `GET /api/catalogo/objetos` | autenticado | catálogo con medidas y flags |
 | 6 | RF-06 | `POST /api/solicitudes` | Cliente | copia peso, medidas y flags de cada objeto; **no calcula ni devuelve monto** (D-13, D-20) |
 | 6 | RF-06 | `GET /api/solicitudes` · `GET /api/solicitudes/{id}` | Cliente | "vencida" calculada al vuelo (D-20) |
 | 6 | RF-06 | `POST /api/solicitudes/{id}/cancelar` | Cliente | sin costo; ofertas pendientes a `no_seleccionada` |

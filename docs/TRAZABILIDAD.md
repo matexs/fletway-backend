@@ -64,7 +64,7 @@
 | RN-05 | Postulación pull + aviso + top 3 por score | `NO` | job async (aviso **in-app** en esta etapa, D-22) + endpoint de ofertas (top 3) | score = f(precio, calificación, tasa de cumplimiento), **sin cercanía** (D-25, `docs/ALGORITMO_SCORE.md`) |
 | RN-06 | Verificación por PIN + geolocalización | `NO` | endpoints de ejecución de viaje | 2 PIN (inicio/fin) + ping GPS; `resena` habilitada tras PIN de fin válido; el Transportista nunca ve el PIN, lo dicta el Cliente (D-26) |
 | RN-07 | Cancelación con costo | `NO` | endpoints de cancelación | sin cargo si no salió; cargo de resarcimiento si salió; transportista no paga penalización; "salió" = `viaje.salio_en`, cargo del 20 % (D-27) |
-| RN-08 | Catálogo de objetos comunes | `NO` | endpoint de catálogo + cotización | `solicitud_objeto` admite `objeto_id` o carga manual; en ambos casos guarda su copia de peso, largo/ancho/alto (nuevo) y flags de rotación/apilado (nuevo) |
+| RN-08 | Catálogo de objetos comunes | `EN CURSO` | `GET /api/catalogo/objetos` (`internal/feature/catalogo`, `catalogo_test.go`); falta la copia a `solicitud_objeto` (módulo 6) y su uso en la cotización (módulo 8) | `solicitud_objeto` admite `objeto_id` o carga manual; en ambos casos guarda su copia de peso, largo/ancho/alto (nuevo) y flags de rotación/apilado (nuevo) |
 
 ---
 
