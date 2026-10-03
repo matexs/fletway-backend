@@ -5,6 +5,9 @@
 -- Afecta: tipo_vehiculo (3 columnas nuevas, datos reemplazados, comentario de deprecación).
 --   Sin cambios de RLS.
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- Las medidas estándar son de referencia: la app las propone al registrar un vehículo y el
 -- Transportista las corrige. El cálculo de viajes y el matchmaking usan siempre las del
 -- vehículo real (vehiculo.largo_util_m, ancho_util_m, alto_util_m).
