@@ -11,6 +11,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/feature/habilitacion"
 	"github.com/matexs/fletway-backend/internal/feature/health"
 	"github.com/matexs/fletway-backend/internal/feature/identidad"
+	"github.com/matexs/fletway-backend/internal/feature/matchmaking"
 	"github.com/matexs/fletway-backend/internal/feature/notificacion"
 	"github.com/matexs/fletway-backend/internal/feature/solicitud"
 	"github.com/matexs/fletway-backend/internal/feature/vehiculo"
@@ -84,7 +85,9 @@ func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	vehiculo.Register(apiMux, s.db)
 	geografia.Register(apiMux, s.db)
 	catalogo.Register(apiMux, s.db)
-	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo))
+	match := matchmaking.NewService(s.db)
+	matchmaking.Register(apiMux, match)
+	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo, match, s.jobs))
 	habilitacion.Register(apiMux,
 		habilitacion.NewService(s.db, s.archivos, notificacion.NewInApp(s.db), s.jobs))
 }

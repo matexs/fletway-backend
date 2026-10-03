@@ -354,6 +354,31 @@ Request `{"fecha_servicio_deseada": "2026-10-20", "franja_horaria_inicio": null,
 objetos; la vencida queda como registro. `201` con la `Solicitud` nueva. Errores:
 `400 fecha_pasada`, `404 solicitud_no_encontrada`, `409 solicitud_no_vencida`.
 
+### Matchmaking (RN-04, RN-05, D-21)
+
+#### `GET /api/transportista/solicitudes` (Transportista)
+Solicitudes que el Transportista puede ofertar, las de fecha más cercana primero. Una solicitud es
+compatible (D-21) si está publicada y no vencida; el Transportista está habilitado, disponible y sin
+veto vigente; la zona de origen o de destino está entre las suyas; y algún vehículo activo pasa la
+cota rápida de peso y volumen (la carga entra en 20 viajes como máximo). Si no cumple las tres
+condiciones del Transportista, la lista vuelve vacía. `200`:
+
+```json
+[{ "id": "uuid", "fecha_servicio_deseada": "2026-10-12", "franja_horaria_inicio": "09:00",
+   "franja_horaria_fin": "13:00", "origen_zona_nombre": "San Isidro",
+   "destino_zona_nombre": "Ciudad Autónoma de Buenos Aires", "cantidad_objetos": 4,
+   "peso_total_kg": 400, "volumen_total_m3": 3.98, "cantidad_ayudantes_solicitados": 2,
+   "creado_en": "2026-10-03T15:00:00Z" }]
+```
+
+El detalle (direcciones y objetos) sale de `GET /api/solicitudes/{id}`. Error: `403
+no_es_transportista`.
+
+**Aviso al publicar (RN-05, D-22):** `POST /api/solicitudes` y `.../republicar` encolan un job que
+crea la notificación in-app `solicitud_compatible` ("Hay una nueva solicitud de flete en tu zona.
+Revisala y postulate si te interesa.") para cada Transportista compatible en ese momento. Es
+idempotente: una notificación por Transportista y solicitud.
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -363,7 +388,6 @@ objetos; la vencida queda como registro. `201` con la `Solicitud` nueva. Errores
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 7 | RF-17 / RN-04 | `GET /api/transportista/solicitudes` | Transportista | compatibles según D-21, sin vencidas |
 | 8 | RF-17 / RN-01 / RN-02 | `POST /api/solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes` (0..3). Calcula viajes y precio. Si la carga no entra, la ruta no se obtiene o el cálculo vence → error de validación con el motivo, sin oferta |
 | 8 | RF-17 | `POST /api/ofertas/{id}/retirar` · `GET /api/transportista/ofertas` | Transportista | la oferta no se edita: se retira y se crea otra (D-23) |
 | 9 | RF-07 / RN-05 | `GET /api/solicitudes/{id}/ofertas` | Cliente | **top 3 por score** (`ALGORITMO_SCORE.md`); `?ver_mas=true` pagina. Sólo `precio_calculado`, nunca el desglose |
