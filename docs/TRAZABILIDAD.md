@@ -26,7 +26,7 @@
 | RF | Título | Estado | Endpoint(s) / servicio | Tablas | Tests |
 |----|--------|--------|------------------------|--------|-------|
 | RF-05 | Registro de Cliente | `EN CURSO` | `trg_alta_usuario` (`0011`) + `POST /api/auth/registro/cliente`, `GET /api/me` (`internal/feature/identidad`). Falta la pantalla de la app | `usuario`, `cliente` | `identidad_test.go` (registro, errores, trigger, RLS) |
-| RF-06 | Publicar necesidad de servicio | `NO` | — (**sin cotización estimada**: el endpoint no calcula ni devuelve monto) | `solicitud` (acceso origen/destino (nuevo)), `solicitud_objeto` (dimensiones y flags (nuevo), copiados desde `objeto`), `objeto` | — |
+| RF-06 | Publicar necesidad de servicio | `EN CURSO` | `POST/GET /api/solicitudes`, `GET .../{id}`, `.../cancelar`, `.../republicar` (`internal/feature/solicitud`); fecha, franja, sin edición y copia del catálogo en la base (`0014`, D-20). **Sin cotización estimada**: no se calcula ni devuelve monto. Falta la app | `solicitud` (acceso origen/destino (nuevo)), `solicitud_objeto` (dimensiones y flags (nuevo), copiados desde `objeto`), `objeto` | `solicitud_test.go` (alta con catálogo y manual, errores, vencimiento, cancelar, republicar, sin edición en la base) |
 | RF-07 | Elegir entre ofertas de Transportistas | `NO` | — (al aceptar, el `viaje` **copia** el desglose de costo de la `oferta` a `*_snapshot` (nuevo); no recalcula) | `oferta`, `viaje`, `estado_oferta`, `estado_viaje` | — |
 | RF-08 | Cancelar servicio | `NO` | — | `viaje`, `estado_viaje`, `pago`, `pago_movimiento` | — |
 | RF-09 | Recibir notificaciones de cambio de estado | `NO` | — | `notificacion`, `tipo_notificacion` | — |
