@@ -16,7 +16,7 @@
 
 | RF | Título | Estado | Endpoint(s) / servicio | Tablas | Tests |
 |----|--------|--------|------------------------|--------|-------|
-| RF-01 | Validar documentación de Transportistas | `NO` | — | `documento_transportista`, `transportista`, `estado_habilitacion_transportista` | — |
+| RF-01 | Validar documentación de Transportistas | `EN CURSO` | `GET /api/admin/transportistas`, `POST /api/admin/documentos/{id}/aprobar` y `/rechazar` (`internal/feature/habilitacion`); estado derivado en la base (`0012`, D-33); notificación por `Notificador` (D-22). Falta la app | `documento_transportista`, `transportista`, `estado_habilitacion_transportista`, `notificacion` | `habilitacion_test.go` (flujo D-33, errores, Administrador, seguridad en la base) |
 | RF-02 | Ver reportes de incidentes | `NO` | — | `incidente` | — |
 | RF-03 | Resolver incidentes | `NO` | — | `incidente_resolucion`, `tipo_resolucion_incidente`, `pago_movimiento`, `veto` | — |
 | RF-04 | Vetar Clientes o Transportistas | `NO` | — | `veto` | — |
@@ -41,7 +41,7 @@
 
 | RF | Título | Estado | Endpoint(s) / servicio | Tablas | Tests |
 |----|--------|--------|------------------------|--------|-------|
-| RF-16 | Registro de Transportista | `EN CURSO` | Alta de cuenta: `trg_alta_usuario` + `POST /api/auth/registro/transportista` (queda `pendiente`). Falta la app y la documentación (módulo 3) | `usuario`, `transportista`, `documento_transportista` | `identidad_test.go` (registro, alta siempre `pendiente`) |
+| RF-16 | Registro de Transportista | `EN CURSO` | Alta de cuenta (módulo 2) y documentación: `POST/GET /api/transportista/documentos`, bucket `documentos-transportista` con policies de Storage (`0012`). Falta la app | `usuario`, `transportista`, `documento_transportista` | `identidad_test.go`, `habilitacion_test.go` |
 | RF-17 | Ver y ofertar sobre necesidades de servicio | `NO` | — (al ofertar corren `planificarViajes` + `calcularCostoOferta`; si no entra → error de validación) | `solicitud`, `solicitud_objeto`, `oferta` (desglose (nuevo)), `transportista_zona`, `vehiculo`, `vehiculo_costo` (nuevo), `config_costo_laboral` (nuevo), `config_operacion` (nuevo), `config_impuesto` (nuevo), `config_comision` | — |
 | RF-18 | Registrar vehículo | `NO` | — | `vehiculo` (dimensiones útiles (nuevo)), `vehiculo_costo` (nuevo), `tipo_vehiculo` | — |
 | RF-19 | Cancelar viajes | `NO` | — | `viaje`, `transportista` (tasa_cumplimiento) | — |
