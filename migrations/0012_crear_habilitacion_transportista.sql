@@ -8,6 +8,9 @@
 --   documento_transportista (policy de insert reemplazada, 2 triggers nuevos),
 --   transportista (fn_proteger_campos_transportista modificada).
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- 1. Bucket privado documentos-transportista (D-19): jpg, png y pdf de hasta 10 MB. Cada
 --    Transportista sube y lee sólo bajo transportista/{su usuario_id}/; el Administrador lee
 --    todo. Sin UPDATE ni DELETE: cada carga es un objeto nuevo (el historial queda en
