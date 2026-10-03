@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/matexs/fletway-backend/internal/feature/catalogo"
 	"github.com/matexs/fletway-backend/internal/feature/geografia"
 	"github.com/matexs/fletway-backend/internal/feature/habilitacion"
 	"github.com/matexs/fletway-backend/internal/feature/health"
@@ -77,6 +78,7 @@ func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	identidad.Register(apiMux, s.db)
 	vehiculo.Register(apiMux, s.db)
 	geografia.Register(apiMux, s.db)
+	catalogo.Register(apiMux, s.db)
 	habilitacion.Register(apiMux,
 		habilitacion.NewService(s.db, s.archivos, notificacion.NewInApp(s.db), s.jobs))
 }
