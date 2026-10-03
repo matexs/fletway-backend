@@ -12,11 +12,15 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | Migración | Estado | Tema |
 |---|---|---|
 | `0001`–`0007` | Aplicadas 2026-09-24 | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02). Ver `docs/ALGORITMO_COTIZACION.md` §8 y el historial en `docs/DOCUMENTACION_BASE_DE_DATOS.md` §8. |
+| `0008` | Probada en local; pendiente en `dbFletway` | Seed de las 14 zonas piloto (módulo 0, RN-04). |
+| `0009` | Probada en local; pendiente en `dbFletway` | Catálogo de 28 objetos con medidas y `NOT NULL` en `largo_m`/`ancho_m`/`alto_m` (módulo 0, RN-08). |
 
 ## Esquema base y entorno local (D-16)
 
-- **`baseline/`** guarda un dump (sólo esquema, schema `public`) de `dbFletway` tomado con
-  `supabase db dump`. Incluye las 13 migraciones iniciales **y** las `0001`–`0007`: es la foto
+- **`baseline/`** guarda el estado de `dbFletway` al 2026-10-02, tomado con `supabase db dump`:
+  `00_extensiones.sql` (extensiones que el dump no incluye), `01_esquema_*.sql` (estructura del
+  schema `public`) y `02_datos_catalogos_*.sql` (sólo catálogos y configuración; producción no
+  tenía datos de personas). Incluye las 13 migraciones iniciales **y** las `0001`–`0007`: es la foto
   completa a partir de la cual se reproduce la base en local. No se edita a mano.
 - **Local:** `make db-local` (o `scripts/db-local.sh`) levanta Supabase local, resetea la base,
   aplica el esquema base y después cada `NNNN_*.sql` posterior a la `0007`, en orden.
