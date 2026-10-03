@@ -3,7 +3,7 @@
 Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas
 Este documento describe el esquema **tal como está desplegado hoy** (verificado contra el catálogo de Postgres, no contra los scripts originales) y explica por qué existe cada pieza en términos del negocio.
 
-**Última actualización:** 2026-09-24, después de aplicar las migraciones `migrations/0001`–`0007` (rediseño de cotización y cálculo de viajes, ver §8). Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
+**Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
 
 ---
 
@@ -92,7 +92,7 @@ erDiagram
 | `tipo_vehiculo` | Catálogo de capacidades **estándar** por tipo. La ERS (RN-02) pide calcular cubicaje "para cada posible vehículo" antes de que haya uno asignado; en el diseño vigente el cálculo de viajes corre sobre el `vehiculo` real al ofertar (ver `ALGORITMO_VIAJES_EMPAQUETADO.md` §7). No tiene dimensiones, así que sólo sirve para cotas de peso y volumen. | `nombre`, `volumen_estandar_m3`, `peso_maximo_estandar_kg` |
 | `vehiculo` | Vehículo real de un Transportista (puede tener más de uno — 1:N, cardinalidad no fijada por la ERS). Las dimensiones útiles alimentan el empaquetado 3D (RN-02). `peso_maximo_kg` es **carga útil** (no peso bruto). | `patente`, `marca`, `modelo`, `largo_util_m`, `ancho_util_m`, `alto_util_m`, `peso_maximo_kg`, `activo`. *Deprecada:* `volumen_carga_m3` (nullable, derivable de las dimensiones) |
 | `vehiculo_costo` | Variables de costo del vehículo real para el precio (RN-01): consumo, neumáticos, mantenimiento, depreciación, seguro y patente. 1:1 con `vehiculo` (PK = `vehiculo_id`, `ON DELETE CASCADE`). Está separada de `vehiculo` porque `vehiculo` es de lectura pública y estos datos son financieros y privados del Transportista. | `combustible_precio_l`, `rendimiento_km_l`, `cantidad_neumaticos`, `costo_neumatico`, `vida_neumatico_km`, `costo_mantenimiento_km`, `valor_compra`, `valor_residual`, `vida_util_km`, `seguro_mensual`, `patente_mensual`, `actualizado_en` |
-| `objeto` | Catálogo de objetos comunes para cotización (RN-08 en la versión vigente de la ERS). Las dimensiones son nullable hasta que el Administrador las cargue en las filas semilla. `alto_m` es el eje vertical. | `nombre`, `peso_estimado_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Redundante:* `volumen_estimado_m3` |
+| `objeto` | Catálogo de objetos comunes para cotización (RN-08 en la versión vigente de la ERS). Las medidas son obligatorias desde la migración `0009` (2026-10-02). `alto_m` es el eje vertical. | `nombre`, `peso_estimado_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Redundante:* `volumen_estimado_m3` |
 
 ### Dominio 4 — Solicitudes y matchmaking
 *El corazón del modelo pull (RN-04, RN-05).*
@@ -207,7 +207,7 @@ Por la restricción de alcance acordada: **no** hay ampliación automática de r
 
 ## 7. Datos de referencia ya cargados
 
-Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`, `objeto`) ya tienen filas semilla (3 a 9 registros cada una, ver conteos en Supabase). Las 5 filas de `objeto` **todavía no tienen dimensiones** (`largo_m`/`ancho_m`/`alto_m` en NULL), así que no se pueden usar en una solicitud hasta que se carguen.
+Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas semilla (3 a 9 registros cada una, ver conteos en Supabase). Desde el 2026-10-02 (módulo 0): **14 zonas piloto** (CABA y Zona Norte del GBA, migración `0008`) y un **catálogo de 28 objetos** con medidas y restricciones de rotación y apilado (migración `0009`).
 
 `config_costo_laboral`, `config_operacion`, `config_impuesto` y `config_comision` tienen una fila vigente cada una con valores **ilustrativos** (los de `config_costo_laboral` y `config_operacion` vienen del documento fuente del algoritmo de cotización; IVA 21 %). Hay que reemplazarlos por los reales del negocio antes de producción. `config_tarifa` conserva su fila, pero está deprecada.
 
@@ -219,5 +219,6 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`, `objeto`) ya tienen
 |---|---|---|
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
+| 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
 
 > Nota: antes de esta actualización el documento decía "34 tablas", pero el esquema real tenía 35 (error de recuento registrado en `VERIFICACION_ESQUEMA_2026-09-07.md`, D-1). El número actual, **39**, se verificó contra el catálogo después de aplicar las migraciones.

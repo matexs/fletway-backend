@@ -3,7 +3,7 @@
 > Foto viva del avance. Actualizar al cerrar cada bloque de trabajo (skill
 > `update-project-state`). Fechas en formato absoluto.
 
-**Última actualización:** 2026-10-02 · **Etapa:** construcción; módulo 1 (plataforma) terminado, entorno local listo
+**Última actualización:** 2026-10-02 · **Etapa:** construcción; módulos 0 y 1 terminados
 
 ---
 
@@ -31,7 +31,8 @@ implementados.
 | Skills de Claude Code | Hecho | `supabase-migration`, `trace-requirement`, `scaffold-endpoint`, `rls-policy-review`, `update-project-state`. |
 | Config MCP Supabase | Hecho | `.claude/mcp-notes.md` (solo lectura por defecto; escritura con confirmación). |
 | Plataforma (módulo 1) | Hecho (2026-10-02) | Conexión `pgx` con RLS pass-through (`WithinTx`) y verificación del JWT ES256 contra el JWKS de Supabase. Tests unitarios y de integración contra Supabase local. |
-| Entorno local | Hecho (2026-10-02) | Supabase CLI + Docker, firma ES256 local, `make db-local` y `make test-integracion`. Falta el esquema base en `migrations/baseline/` (dump de `dbFletway`). |
+| Entorno local | Hecho (2026-10-02) | Supabase CLI + Docker, firma ES256 local, `make db-local` (esquema base de `dbFletway` en `migrations/baseline/` más migraciones posteriores) y `make test-integracion`. |
+| Datos semilla (módulo 0) | Hecho (2026-10-02) | 14 zonas piloto y catálogo de 28 objetos con medidas (`0008`, `0009`), aplicados en local y en `dbFletway`. Los tipos de vehículo se reemplazan en el módulo 4. |
 | Endpoints de negocio | No empezado | Solo `GET /healthz` y `GET /readyz`. Empiezan en el módulo 2. |
 | Dependencias Go | Hecho (2026-10-02) | `pgx/v5`, `golang-jwt/jwt/v5`, `keyfunc/v3`, `testify`. Módulo `github.com/matexs/fletway-backend` (D-05). |
 
@@ -118,3 +119,4 @@ implementados.
 | 2026-10-01 | Definiciones para empezar la construcción: se incorporaron las soluciones acordadas por el equipo a los 61 pendientes. `DECISIONES_TECNICAS.md`: D-03 a D-12 confirmadas, D-09 Mercado Pago, D-15 margen de plataforma (`config_margen`) y nuevas D-16 a D-31 (entornos local y producción, alcance de la etapa, alta y rol, Storage, solicitud con republicación, matchmaking, notificaciones in-app, oferta, ajustes de precio, score sin cercanía, PIN que sólo ve el Cliente, cancelaciones, pagos, reputación, veto y proceso). Nuevos `ALGORITMO_SCORE.md` y `PLAN_CONSTRUCCION.md`; actualizados `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`, `ENDPOINTS.md` (rutas bajo `/api`), `TRAZABILIDAD.md` (enmiendas a la ERS), `CLAUDE.md` y `README.md`. Sin cambios en la base. |
 | 2026-10-01 | Resueltos los puntos A-1 a A-7: `tipo_vehiculo` con 6 tipos y medidas estándar de referencia (D-32), color primario `#C36224` con secundarios grises y fondo blanco, Render a priori y esta etapa sólo local (D-16), desglose en `oferta_costo`/`viaje_costo` con `fn_aceptar_oferta` (D-23), PIN en `viaje_pin` con `fn_validar_pin` (D-26), proveedores de ruteo `google`/`aproximado`/`fijo` (D-24). ERS corregida: `docs/ERS_Fletway.docx` sin cercanía y con el anexo "Registro de cambios"; el `.docx` reemplaza al PDF en el repo. |
 | 2026-10-02 | Setup y módulo 1. Protección de `main` en los dos repos (1 aprobación, bypass de admin; D-31). Entorno local con Docker y Supabase CLI, firma ES256 local y `make db-local`. Módulo 1 del backend: módulo Go renombrado, `pgx` con RLS pass-through y verificación del JWT ES256 sin HS256. Verificado de punta a punta contra Supabase local: tests de integración de `WithinTx`, 401 sin token o con token adulterado, token real aceptado. |
+| 2026-10-02 | Módulo 0. Esquema base de `dbFletway` en `migrations/baseline/` (extensiones, estructura y datos de catálogo; producción sin datos de personas): la base local queda igual a producción (39 tablas, 127 policies). Seeds `0008` (14 zonas) y `0009` (28 objetos, medidas `NOT NULL`), probadas en local y aplicadas en `dbFletway` con confirmación explícita. Advisors sin hallazgos nuevos. |
