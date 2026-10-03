@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/httpx"
@@ -28,16 +29,40 @@ var (
 	errNoVencidaAPI    = httpx.Conflict("solicitud_no_vencida", "sólo se republica una solicitud vencida")
 )
 
+// Avisador avisa a los Transportistas compatibles que hay una solicitud nueva
+// (RN-05). Lo implementa el Service de matchmaking.
+type Avisador interface {
+	// NotificarCompatibles crea los avisos de la solicitud, con la identidad del
+	// Cliente dueño. Tiene que ser idempotente.
+	NotificarCompatibles(ctx context.Context, id database.Identity, solicitudID string) error
+}
+
 // Service publica, lista, cancela y republica solicitudes (RF-06, D-20).
 type Service struct {
 	repo  *repository
 	geo   geocodificacion.Geocodificador
+	aviso Avisador
+	jobs  async.Enqueuer
 	ahora func() time.Time
 }
 
-// NewService crea el Service. geo ubica las direcciones (D-20).
-func NewService(db *database.DB, geo geocodificacion.Geocodificador) *Service {
-	return &Service{repo: &repository{db: db}, geo: geo, ahora: time.Now}
+// NewService crea el Service. geo ubica las direcciones (D-20); aviso y jobs
+// mandan en segundo plano el aviso a los Transportistas compatibles al publicar
+// (RN-05, RNF-02).
+func NewService(db *database.DB, geo geocodificacion.Geocodificador, aviso Avisador, jobs async.Enqueuer) *Service {
+	return &Service{repo: &repository{db: db}, geo: geo, aviso: aviso, jobs: jobs, ahora: time.Now}
+}
+
+// avisar encola el aviso a los Transportistas compatibles. Si falla, se
+// reintenta: el aviso es idempotente.
+func (s *Service) avisar(id database.Identity, solicitudID string) {
+	s.jobs.Enqueue(async.Job{
+		Name:       "notificar-solicitud-compatible",
+		MaxRetries: 2,
+		Run: func(ctx context.Context) error {
+			return s.aviso.NotificarCompatibles(ctx, id, solicitudID)
+		},
+	})
 }
 
 // ConReloj reemplaza el reloj del Service; sirve para los tests del vencimiento.
@@ -52,7 +77,8 @@ func (s *Service) hoy() time.Time {
 }
 
 // Crear publica una solicitud (RF-06): ubica origen y destino, copia los objetos
-// del catálogo (lo hace la base, RN-08) y no calcula ningún monto (RN-01).
+// del catálogo (lo hace la base, RN-08) y no calcula ningún monto (RN-01). Encola
+// el aviso a los Transportistas compatibles (RN-05).
 // Devuelve no_es_cliente, fecha_pasada, zona_invalida, objeto_invalido o
 // direccion_no_ubicable. Escribe en la base.
 func (s *Service) Crear(ctx context.Context, id database.Identity, req CrearSolicitudRequest) (SolicitudResponse, error) {
@@ -90,6 +116,7 @@ func (s *Service) Crear(ctx context.Context, id database.Identity, req CrearSoli
 	if err != nil {
 		return SolicitudResponse{}, err
 	}
+	s.avisar(id, nuevoID)
 	return s.Detalle(ctx, id, nuevoID)
 }
 
@@ -153,6 +180,7 @@ func (s *Service) Republicar(ctx context.Context, id database.Identity, solicitu
 	case err != nil:
 		return SolicitudResponse{}, err
 	}
+	s.avisar(id, nuevoID)
 	return s.Detalle(ctx, id, nuevoID)
 }
 

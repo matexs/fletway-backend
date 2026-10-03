@@ -150,6 +150,7 @@ func borrarUsuario(t *testing.T, id string) {
 			`DELETE FROM notificacion WHERE destinatario_usuario_id = $1`,
 			`UPDATE documento_transportista SET revisado_por_admin_id = NULL WHERE revisado_por_admin_id = $1`,
 			`DELETE FROM solicitud WHERE cliente_id = $1`,
+			`DELETE FROM veto WHERE usuario_id = $1 OR admin_id = $1`,
 			`DELETE FROM auth.users WHERE id = $1`,
 		} {
 			if _, err := tx.Exec(ctx, sql, id); err != nil {
@@ -158,4 +159,14 @@ func borrarUsuario(t *testing.T, id string) {
 		}
 		return nil
 	}))
+}
+
+// CrearTransportistaHabilitado crea un Transportista ya habilitado y disponible, como
+// después de que un Administrador aprueba su documentación (D-33). Lo inserta sin JWT,
+// así que no pasa por la protección del alta.
+func CrearTransportistaHabilitado(t *testing.T) database.Identity {
+	t.Helper()
+	id := CrearUsuario(t, "transportista")
+	Exec(t, `INSERT INTO transportista (usuario_id, estado_habilitacion_codigo) VALUES ($1, 'habilitado')`, id.UserID)
+	return id
 }

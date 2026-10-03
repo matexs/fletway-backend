@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/matexs/fletway-backend/internal/feature/solicitud"
+	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/auth"
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/database/dbtest"
@@ -25,10 +27,36 @@ import (
 // hoy es el "hoy" fijo de los tests: 10 de octubre de 2026, mediodía en Argentina.
 var hoy = time.Date(2026, 10, 10, 15, 0, 0, 0, time.UTC)
 
+// avisos registra qué solicitudes se avisaron; el aviso en sí se prueba en el
+// paquete matchmaking.
+type avisos struct {
+	mu  sync.Mutex
+	ids []string
+}
+
+func (a *avisos) NotificarCompatibles(_ context.Context, _ database.Identity, solicitudID string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.ids = append(a.ids, solicitudID)
+	return nil
+}
+
+func (a *avisos) avisadas() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.ids...)
+}
+
+// jobsInmediatos corre cada job en el momento.
+type jobsInmediatos struct{}
+
+func (jobsInmediatos) Enqueue(j async.Job) bool { return j.Run(context.Background()) == nil }
+
 type api struct {
-	t   *testing.T
-	db  *database.DB
-	mux *http.ServeMux
+	t      *testing.T
+	db     *database.DB
+	mux    *http.ServeMux
+	avisos *avisos
 }
 
 func nuevaAPI(t *testing.T, ahora time.Time) *api {
@@ -40,9 +68,11 @@ func nuevaAPI(t *testing.T, ahora time.Time) *api {
 func nuevaAPIConDB(t *testing.T, db *database.DB, ahora time.Time) *api {
 	t.Helper()
 	mux := http.NewServeMux()
-	svc := solicitud.NewService(db, geocodificacion.Aproximado{}).ConReloj(func() time.Time { return ahora })
+	av := &avisos{}
+	svc := solicitud.NewService(db, geocodificacion.Aproximado{}, av, jobsInmediatos{}).
+		ConReloj(func() time.Time { return ahora })
 	solicitud.Register(mux, svc)
-	return &api{t: t, db: db, mux: mux}
+	return &api{t: t, db: db, mux: mux, avisos: av}
 }
 
 func (a *api) llamar(id database.Identity, metodo, path string, body any) (int, json.RawMessage) {
@@ -153,6 +183,8 @@ func TestPublicar(t *testing.T) {
 	assert.True(t, piano.RotacionHorizontal, "sin dato vale true")
 	assert.False(t, piano.Apilable)
 
+	assert.Equal(t, []string{s.ID}, a.avisos.avisadas(), "avisa a los Transportistas compatibles (RN-05)")
+
 	var lat, lng string
 	require.NoError(t, a.db.WithinTx(context.Background(), c, func(tx pgx.Tx) error {
 		return tx.QueryRow(context.Background(), `SELECT origen_lat::text, destino_lng::text FROM solicitud WHERE id = $1`,
@@ -258,6 +290,7 @@ func TestListarVencerCancelarYRepublicar(t *testing.T) {
 		assert.Equal(t, "2026-10-20", nueva.FechaServicioDeseada)
 		assert.Nil(t, nueva.FranjaHorariaInicio)
 		assert.Len(t, nueva.Objetos, 2, "copia los objetos")
+		assert.Contains(t, despues.avisos.avisadas(), nueva.ID, "la republicada también se avisa")
 
 		code, _ = despues.llamar(otro, "POST", "/solicitudes/"+s.ID+"/republicar", map[string]string{"fecha_servicio_deseada": "2026-10-20"})
 		assert.Equal(t, http.StatusNotFound, code)
