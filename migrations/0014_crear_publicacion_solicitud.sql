@@ -4,6 +4,9 @@
 -- Afecta: solicitud (fecha_servicio_deseada, franja_horaria_inicio, franja_horaria_fin; 1 trigger),
 --   solicitud_objeto (2 triggers). Sin cambios de policies.
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- 1. Fecha y franja del servicio (D-20). La franja es opcional (null = "lo antes posible"); si
 --    se carga, van las dos horas y el inicio es anterior al fin. dbFletway no tiene solicitudes
 --    (verificado el 2026-10-03), así que la fecha nace NOT NULL.
