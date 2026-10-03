@@ -11,7 +11,7 @@ import (
 
 var (
 	errUsuarioNoEncontrado = httpx.NotFound("usuario_no_encontrado",
-		"la cuenta no tiene perfil de usuario; registrate de nuevo")
+		"la cuenta no tiene perfil de usuario")
 	errRolNoCorresponde = httpx.Conflict("rol_no_corresponde",
 		"la cuenta no tiene el rol de este registro")
 	errCuentaInactiva = httpx.Forbidden("cuenta_inactiva", "la cuenta está desactivada")
