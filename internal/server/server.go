@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/matexs/fletway-backend/internal/feature/health"
+	"github.com/matexs/fletway-backend/internal/feature/identidad"
 	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/auth"
 	"github.com/matexs/fletway-backend/internal/platform/config"
@@ -65,6 +66,5 @@ func (s *Server) Handler() http.Handler {
 //	solicitud.Register(apiMux, s.db, s.jobs)
 //	oferta.Register(apiMux, s.db)
 func (s *Server) registerAPI(apiMux *http.ServeMux) {
-	_ = apiMux
-	// (sin features de negocio todavía — ver docs/ESTADO_PROYECTO.md)
+	identidad.Register(apiMux, s.db)
 }
