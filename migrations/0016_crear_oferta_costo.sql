@@ -7,6 +7,9 @@
 --   oferta (se van 11 columnas de costo; el UNIQUE pasa a índice parcial; 3 triggers);
 --   COMMENT de config_operacion.tiempo_espera_min.
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local). dbFletway tenía 0 ofertas y 0 viajes.
+--
 -- 1. config_margen (D-15): margen de plataforma versionado como las demás config_*. La seed es
 --    0 % porque el equipo todavía no definió otro valor (PLAN_CONSTRUCCION, módulo 8); cambiarlo
 --    es cerrar la fila vigente e insertar otra.
