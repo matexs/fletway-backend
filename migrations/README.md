@@ -19,7 +19,7 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | `0012` | Aplicada 2026-10-03 | Bucket privado `documentos-transportista` y sus policies de Storage (D-19); alta de documentos siempre pendiente y en el prefijo propio; estado de habilitación derivado de los documentos (D-33) (módulo 3). |
 | `0013` | Aplicada 2026-10-03 | `tipo_vehiculo` con largo, ancho y alto estándar y 6 tipos nuevos (A-1, D-32); `volumen_estandar_m3` deprecada (módulo 4). |
 | `0014` | Aplicada 2026-10-03 | Fecha y franja del servicio en `solicitud`; sin edición, objetos fijos y copia del catálogo por triggers (D-20, módulo 6). |
-| `0015` | Sólo local (pendiente de confirmación para `dbFletway`) | Matchmaking: `fn_es_compatible` (D-21), listado de compatibles y aviso in-app idempotente (módulo 7). |
+| `0015` | Aplicada 2026-10-03 | Matchmaking: `fn_es_compatible` (D-21), listado de compatibles y aviso in-app idempotente (módulo 7). |
 
 ## Esquema base y entorno local (D-16)
 

@@ -6,6 +6,9 @@
 --   fn_notificar_solicitud_compatible; índice único parcial en notificacion. Sin cambios de
 --   tablas ni de policies.
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local (make db-local).
+--
 -- D-21 en un solo lugar: una solicitud es compatible con un Transportista si
 --   - está publicada y no vencida (fecha >= hoy en Argentina, D-20);
 --   - el Transportista está habilitado, disponible y sin veto vigente;
