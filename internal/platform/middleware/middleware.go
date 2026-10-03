@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fletway/fletway-backend/internal/platform/auth"
-	"github.com/fletway/fletway-backend/internal/platform/httpx"
+	"github.com/matexs/fletway-backend/internal/platform/auth"
+	"github.com/matexs/fletway-backend/internal/platform/httpx"
 )
 
 // Chain aplica middlewares en orden: Chain(h, a, b, c) ejecuta a(b(c(h))).

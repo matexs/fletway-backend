@@ -1,10 +1,21 @@
-module github.com/fletway/fletway-backend
+module github.com/matexs/fletway-backend
 
 go 1.27
 
-// Dependencias previstas (agregar con `go mod tidy` al implementar):
-//   github.com/jackc/pgx/v5            -- driver + pool Postgres (D-02)
-//   github.com/golang-jwt/jwt/v5       -- verificación de JWT de Supabase (D-04)
-//   github.com/MicahParks/keyfunc/v3   -- cache de JWKS para el JWT asimétrico (D-04)
-//   github.com/stretchr/testify        -- asserts en tests (D-12)
-//   github.com/jackc/pgx/v5/pgxpool    -- (incluido en pgx/v5)
+require (
+	github.com/MicahParks/keyfunc/v3 v3.8.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/jackc/pgx/v5 v5.11.0
+	github.com/stretchr/testify v1.12.1
+)
+
+require (
+	github.com/MicahParks/jwkset v0.11.3 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
+)

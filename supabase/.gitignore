@@ -1,0 +1,11 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# Clave privada de firma de JWT (ES256) del entorno local. Nunca se versiona.
+signing_keys.json

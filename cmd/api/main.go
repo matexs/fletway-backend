@@ -13,10 +13,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/fletway/fletway-backend/internal/platform/async"
-	"github.com/fletway/fletway-backend/internal/platform/config"
-	"github.com/fletway/fletway-backend/internal/platform/database"
-	"github.com/fletway/fletway-backend/internal/server"
+	"github.com/matexs/fletway-backend/internal/platform/async"
+	"github.com/matexs/fletway-backend/internal/platform/auth"
+	"github.com/matexs/fletway-backend/internal/platform/config"
+	"github.com/matexs/fletway-backend/internal/platform/database"
+	"github.com/matexs/fletway-backend/internal/server"
 )
 
 func main() {
@@ -45,6 +46,13 @@ func run() error {
 	}
 	defer db.Close()
 
+	// Verificación del JWT de Supabase Auth contra el JWKS (D-04). El cache de
+	// claves se refresca en segundo plano mientras ctx esté vivo.
+	verifier, err := auth.NewVerifier(ctx, cfg.Supabase)
+	if err != nil {
+		return err
+	}
+
 	// Workers async para tareas en segundo plano sin bloquear el request (RNF-02 / D-06).
 	jobs := async.NewPool(cfg.Async.Workers, cfg.Async.QueueSize, logger)
 	jobs.Start(ctx)
@@ -52,7 +60,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:         cfg.HTTP.Addr,
-		Handler:      server.New(cfg, logger, db, jobs).Handler(),
+		Handler:      server.New(cfg, logger, db, jobs, verifier).Handler(),
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 	}

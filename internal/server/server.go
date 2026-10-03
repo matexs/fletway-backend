@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/fletway/fletway-backend/internal/feature/health"
-	"github.com/fletway/fletway-backend/internal/platform/async"
-	"github.com/fletway/fletway-backend/internal/platform/auth"
-	"github.com/fletway/fletway-backend/internal/platform/config"
-	"github.com/fletway/fletway-backend/internal/platform/database"
-	"github.com/fletway/fletway-backend/internal/platform/middleware"
+	"github.com/matexs/fletway-backend/internal/feature/health"
+	"github.com/matexs/fletway-backend/internal/platform/async"
+	"github.com/matexs/fletway-backend/internal/platform/auth"
+	"github.com/matexs/fletway-backend/internal/platform/config"
+	"github.com/matexs/fletway-backend/internal/platform/database"
+	"github.com/matexs/fletway-backend/internal/platform/middleware"
 )
 
 // Server contiene las dependencias compartidas por todas las features.
@@ -23,14 +23,15 @@ type Server struct {
 	verifier *auth.Verifier
 }
 
-// New construye el Server con sus dependencias.
-func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueuer) *Server {
+// New construye el Server con sus dependencias. El verifier de JWT lo crea quien
+// llama (necesita un contexto de vida para refrescar el JWKS).
+func New(cfg config.Config, log *slog.Logger, db *database.DB, jobs async.Enqueuer, verifier *auth.Verifier) *Server {
 	return &Server{
 		cfg:      cfg,
 		log:      log,
 		db:       db,
 		jobs:     jobs,
-		verifier: auth.NewVerifier(cfg.Supabase),
+		verifier: verifier,
 	}
 }
 

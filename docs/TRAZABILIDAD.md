@@ -72,7 +72,7 @@
 
 | RNF | Estado | Cómo se satisface |
 |-----|--------|-------------------|
-| RNF-01 — JWT en todos los endpoints | `EN CURSO` | middleware `auth` obligatorio en el mux; ningún handler de negocio sin él |
+| RNF-01 — JWT en todos los endpoints | `EN CURSO` | middleware `auth` obligatorio en el mux, con verificación ES256 contra el JWKS de Supabase (D-04, módulo 1, 2026-10-02). Pasa a `OK` cuando los endpoints de negocio lo usen con sus tests |
 | RNF-02 — Async y concurrente | `EN CURSO` | `internal/platform/async` (pool de workers); handlers no bloquean en side-effects |
 | RNF-03 — 3FN + snapshot en `viaje` | `OK` (en DB) | ya en el esquema; el backend debe **escribir** los `*_snapshot` al confirmar viaje. Los snapshots de tarifa plana quedaron DEPRECATED y se reemplazaron por el desglose de costo (migración 0006, aplicada) |
 | RNF-04 — Mínima decisión del Cliente | `EN CURSO` | precio automático (RN-01), top 3 (RN-05) — se respeta en el diseño de endpoints |
