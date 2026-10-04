@@ -174,7 +174,7 @@ Notifica al Transportista (`documentacion_revisada`, en segundo plano) cuando un
 | 404 | `documento_no_encontrado` | el id no existe o está mal formado |
 | 409 | `documento_ya_revisado` | el documento ya no está pendiente |
 
-### Vehículos y costos (RF-18, RN-01, D-32)
+### Vehículos (RF-18, D-32, D-34)
 
 Errores de validación de forma: `400 datos_invalidos` con `details` = `{ "<campo>": "<problema>" }`
 (todos los campos con problema a la vez). Montos y medidas son números JSON con hasta 2 decimales
@@ -205,7 +205,7 @@ La patente se normaliza (mayúsculas, sin espacios ni guiones) y tiene que ser `
 { "id": "uuid", "tipo_vehiculo_id": "uuid", "tipo_vehiculo_nombre": "Furgón chico",
   "patente": "AB123CD", "marca": "Renault", "modelo": "Kangoo",
   "largo_util_m": 2.4, "ancho_util_m": 1.45, "alto_util_m": 1.15, "peso_maximo_kg": 650,
-  "activo": true, "tiene_costos": false, "creado_en": "2026-10-03T12:00:00Z" }
+  "activo": true, "creado_en": "2026-10-03T12:00:00Z" }
 ```
 
 Errores: `400 datos_invalidos`, `400 tipo_vehiculo_invalido`, `403 no_es_transportista`,
@@ -219,22 +219,8 @@ Request `{"activo": false}`. `200` con `Vehiculo`. Un vehículo inactivo no cuen
 matchmaking ni para ofertar (D-21). Errores: `400 datos_incompletos`, `404 vehiculo_no_encontrado`
 (no existe o no es propio).
 
-#### `PUT /api/transportista/vehiculos/{id}/costos` y `GET` (Transportista dueño)
-Segundo paso del alta: los costos operativos que usa el precio de cada oferta (RN-01,
-`ALGORITMO_COTIZACION.md` §4.2). El `PUT` crea o reemplaza. Sólo los leen el dueño y el
-Administrador. Request y respuesta (la respuesta suma `actualizado_en`):
-
-```json
-{ "combustible_precio_l": 1350.5, "rendimiento_km_l": 9.5, "cantidad_neumaticos": 4,
-  "costo_neumatico": 185000, "vida_neumatico_km": 50000, "costo_mantenimiento_km": 45.75,
-  "valor_compra": 28000000, "valor_residual": 9000000, "vida_util_km": 400000,
-  "seguro_mensual": 95000, "patente_mensual": 38000 }
-```
-
-Reglas: montos `>= 0` con hasta 2 decimales; `rendimiento_km_l > 0`; `cantidad_neumaticos` de 1
-a 30; `vida_neumatico_km` y `vida_util_km` enteros `> 0`; `valor_residual <= valor_compra`.
-Errores: `400 datos_invalidos`, `404 vehiculo_no_encontrado`, `404 costos_no_cargados` (sólo el
-`GET`).
+Los costos del vehículo que entran en el precio no los carga el Transportista: son de referencia
+por tipo de vehículo (`config_costo_vehiculo`, D-34).
 
 ### Zonas y disponibilidad (RN-04, D-21)
 
@@ -379,6 +365,62 @@ crea la notificación in-app `solicitud_compatible` ("Hay una nueva solicitud de
 Revisala y postulate si te interesa.") para cada Transportista compatible en ese momento. Es
 idempotente: una notificación por Transportista y solicitud.
 
+### Ofertas (RF-17, RN-01, RN-02, D-23, D-24)
+
+El Transportista elige vehículo y ayudantes; el sistema calcula la cantidad de viajes con el
+vehículo real (`ALGORITMO_VIAJES_EMPAQUETADO.md`) y el precio (`ALGORITMO_COTIZACION.md`). Una oferta
+no se edita: se retira y se crea otra. El desglose (`desglose`) sólo lo ven el Transportista dueño y
+el Administrador; la base lo guarda en `oferta_costo` (`0016`).
+
+#### `POST /api/solicitudes/{id}/ofertas/cotizar` (Transportista)
+Mismo request y mismas validaciones que ofertar, pero **no guarda nada**: devuelve el precio y los
+viajes que tendría la oferta, para decidir antes de ofertar. `200`:
+
+```json
+{ "cantidad_viajes": 1, "cantidad_ayudantes": 1, "precio_calculado": 98456.12,
+  "desglose": { "distancia_km": 18.4, "duracion_ruta_h": 0.61, "duracion_operacion_h": 0.52,
+    "costo_laboral": 42210.33, "costo_vehiculo": 9120.5, "costos_adicionales": 0,
+    "costo_operativo": 51330.83, "margen_pct": 0, "precio_neto": 60389.21,
+    "porcentaje_comision": 15, "iva_pct": 21 } }
+```
+
+#### `POST /api/solicitudes/{id}/ofertas` (Transportista habilitado)
+Request: `{ "vehiculo_id": "uuid", "cantidad_ayudantes": 1 }` (0 a 3, D-23). La solicitud tiene que
+estar entre las compatibles del Transportista (`GET /api/transportista/solicitudes`); el vehículo,
+activo. `201` con `Oferta`:
+
+```json
+{ "id": "uuid", "estado": "pendiente", "solicitud_id": "uuid", "solicitud_estado": "publicada",
+  "fecha_servicio_deseada": "2026-10-12", "origen_zona_nombre": "San Isidro",
+  "destino_zona_nombre": "Ciudad Autónoma de Buenos Aires", "vehiculo_id": "uuid",
+  "vehiculo_patente": "AB123CD", "vehiculo_tipo": "Furgón chico", "cantidad_viajes": 1,
+  "cantidad_ayudantes": 1, "precio_calculado": 98456.12, "desglose": { "...": "igual que cotizar" },
+  "creado_en": "2026-10-03T15:00:00Z" }
+```
+
+Errores (también de cotizar, salvo el último):
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `datos_invalidos` | `vehiculo_id` mal formado o ayudantes fuera de 0..3 (`details` por campo) |
+| 400 | `carga_no_factible` | la carga no entra en el vehículo; `details.motivos` explica por objeto ("Heladera: no entra en la posición en que tiene que viajar") o "la carga necesita más de 20 viajes con este vehículo" |
+| 400 | `calculo_demorado` | el cálculo de viajes superó los 5 s (D-24) |
+| 400 | `ruta_no_disponible` | no se pudo calcular el recorrido (nunca se estima "a ojo", D-24) |
+| 403 | `no_es_transportista` · `transportista_no_habilitado` | |
+| 404 | `solicitud_no_disponible` | no existe, ya no está publicada o no es compatible con el Transportista |
+| 404 | `vehiculo_no_encontrado` | no existe o es de otro Transportista |
+| 409 | `transportista_no_disponible` | tiene la disponibilidad apagada |
+| 409 | `vehiculo_inactivo` | |
+| 409 | `oferta_duplicada` | ya tiene una oferta vigente con ese vehículo para la solicitud |
+
+#### `POST /api/ofertas/{id}/retirar` (Transportista dueño)
+Pasa a `retirada` una oferta `pendiente`. `200` con `Oferta`. Después puede ofertar de nuevo con el
+mismo vehículo. Errores: `404 oferta_no_encontrada`, `409 oferta_no_retirable`.
+
+#### `GET /api/transportista/ofertas` (Transportista)
+Sus ofertas, las más nuevas primero, con el desglose. `solicitud_estado` trae `vencida` calculado al
+leer (D-20). `200` con `[Oferta]`. Error: `403 no_es_transportista`.
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -388,8 +430,6 @@ idempotente: una notificación por Transportista y solicitud.
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 8 | RF-17 / RN-01 / RN-02 | `POST /api/solicitudes/{id}/ofertas` | Transportista habilitado | request: `vehiculo_id` + `cantidad_ayudantes` (0..3). Calcula viajes y precio. Si la carga no entra, la ruta no se obtiene o el cálculo vence → error de validación con el motivo, sin oferta |
-| 8 | RF-17 | `POST /api/ofertas/{id}/retirar` · `GET /api/transportista/ofertas` | Transportista | la oferta no se edita: se retira y se crea otra (D-23) |
 | 9 | RF-07 / RN-05 | `GET /api/solicitudes/{id}/ofertas` | Cliente | **top 3 por score** (`ALGORITMO_SCORE.md`); `?ver_mas=true` pagina. Sólo `precio_calculado`, nunca el desglose |
 | 9 | RF-11 | `GET /api/transportistas/{id}` | autenticado | perfil público + reseñas; sin datos financieros |
 | 9 | RF-07 | `POST /api/ofertas/{id}/aceptar` | Cliente | vía `fn_aceptar_oferta`: crea el `viaje`, copia el desglose a `viaje_costo`, genera los PIN en `viaje_pin`, las demás ofertas pasan a `no_seleccionada`; habilita chat (RI-05) |

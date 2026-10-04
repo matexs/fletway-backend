@@ -1,6 +1,6 @@
 # Fletway — Documentación de la base de datos
 
-Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 39 tablas
+Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 42 tablas
 Este documento describe el esquema **tal como está desplegado hoy** (verificado contra el catálogo de Postgres, no contra los scripts originales) y explica por qué existe cada pieza en términos del negocio.
 
 **Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`) y la identidad del módulo 2 (`0010`–`0011`). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
@@ -27,7 +27,7 @@ El Cliente elige una oferta → se confirma un `viaje` → se ejecuta con verifi
 
 **Tablas de referencia en vez de enums.** Todo valor categórico que podría crecer o necesitar metadata (`estado_viaje`, `tipo_incidente`, etc.) es una tabla `codigo/descripcion`, no un `enum` de Postgres — más fácil de extender sin migraciones.
 
-**RLS activo en las 39 tablas**, con Supabase Auth nativo: `auth.uid()` = `usuario.id`. Sección 5 tiene el detalle completo.
+**RLS activo en las 42 tablas**, con Supabase Auth nativo: `auth.uid()` = `usuario.id`. Sección 5 tiene el detalle completo.
 
 ---
 
@@ -115,7 +115,7 @@ erDiagram
 |---|---|---|
 | `tipo_vehiculo` | Catálogo de capacidades **estándar** por tipo (6 tipos desde la migración `0013`, D-32). Las medidas son de referencia: la app las propone al registrar un vehículo y el Transportista las corrige; el cálculo de viajes y el matchmaking usan siempre las del `vehiculo` real (ver `ALGORITMO_VIAJES_EMPAQUETADO.md` §7). | `nombre`, `largo_estandar_m`, `ancho_estandar_m`, `alto_estandar_m`, `peso_maximo_estandar_kg`. *Deprecada:* `volumen_estandar_m3` (derivable de las medidas) |
 | `vehiculo` | Vehículo real de un Transportista (puede tener más de uno — 1:N, cardinalidad no fijada por la ERS). Las dimensiones útiles alimentan el empaquetado 3D (RN-02). `peso_maximo_kg` es **carga útil** (no peso bruto). | `patente`, `marca`, `modelo`, `largo_util_m`, `ancho_util_m`, `alto_util_m`, `peso_maximo_kg`, `activo`. *Deprecada:* `volumen_carga_m3` (nullable, derivable de las dimensiones) |
-| `vehiculo_costo` | Variables de costo del vehículo real para el precio (RN-01): consumo, neumáticos, mantenimiento, depreciación, seguro y patente. 1:1 con `vehiculo` (PK = `vehiculo_id`, `ON DELETE CASCADE`). Está separada de `vehiculo` porque `vehiculo` es de lectura pública y estos datos son financieros y privados del Transportista. | `combustible_precio_l`, `rendimiento_km_l`, `cantidad_neumaticos`, `costo_neumatico`, `vida_neumatico_km`, `costo_mantenimiento_km`, `valor_compra`, `valor_residual`, `vida_util_km`, `seguro_mensual`, `patente_mensual`, `actualizado_en` |
+| `vehiculo_costo` | **DEPRECATED (`0017`, D-34).** Costos cargados por el Transportista para cada vehículo; reemplazada por `config_costo_vehiculo`. El backend no la lee ni la escribe; está vacía en `dbFletway` y se borra con lo demás deprecado. | `vehiculo_id` |
 | `objeto` | Catálogo de objetos comunes para cotización (RN-08 en la versión vigente de la ERS). Las medidas son obligatorias desde la migración `0009` (2026-10-02). `alto_m` es el eje vertical. | `nombre`, `peso_estimado_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Redundante:* `volumen_estimado_m3` |
 
 ### Dominio 4 — Solicitudes y matchmaking
@@ -127,7 +127,8 @@ erDiagram
 | `solicitud` | Necesidad publicada por el Cliente. `origen_zona_id`/`destino_zona_id` son las FK que RN-04 necesita para el matching; `origen_lat/lng` y `destino_lat/lng` son para el cálculo de distancia (RN-01). El acceso (pisos, ascensor, distancia a pie del vehículo a la puerta) se guarda **por separado para origen y destino** porque afecta distinto a carga y descarga. **No guarda ningún precio:** no hay cotización estimada al publicar. | zonas, direcciones, coordenadas, `fecha_servicio_deseada`, `franja_horaria_inicio`/`franja_horaria_fin` (opcionales, las dos o ninguna; `0014`), `pisos_origen`, `ascensor_utilizable_origen`, `distancia_vehiculo_origen_m`, `pisos_destino`, `ascensor_utilizable_destino`, `distancia_vehiculo_destino_m`, `cantidad_ayudantes_solicitados`. *Deprecadas:* `requiere_escalera`, `pisos_escalera`, `cotizacion_estimada_monto` |
 | `solicitud_objeto` | N:M Solicitud↔Objeto. Soporta tanto ítems del catálogo (`objeto_id`) como carga manual (`nombre_personalizado`) — RF-06 permite ambos modos (CHECK: exactamente uno de los dos). En ambos casos la fila guarda **su propia copia** de peso, dimensiones y restricciones de rotación y apilado, que es lo que usa el cálculo de viajes. | `objeto_id` *(nullable)*, `nombre_personalizado`, `cantidad`, `peso_unitario_kg`, `largo_m`, `ancho_m`, `alto_m`, `rotacion_horizontal`, `rotacion_vertical`, `apilable`. *Deprecada:* `volumen_unitario_m3` |
 | `estado_oferta` | Catálogo: `pendiente` / `aceptada` / `no_seleccionada` / `retirada`. | — |
-| `oferta` | Postulación de un Transportista a una Solicitud (RF-17). Solo puede postularse un Transportista **habilitado** (verificado a nivel de policy). Acá se calcula el **único precio** que ve el Cliente (`precio_calculado`) y se guarda su **desglose**, para auditar el precio y para que el `viaje` lo copie al confirmarse: el `viaje` lo crea la sesión del Cliente, que no puede leer `vehiculo_costo`. | `vehiculo_id`, `cantidad_viajes`, `cantidad_ayudantes`, `distancia_km`, `duracion_ruta_h`, `duracion_operacion_h`, `costo_laboral`, `costo_vehiculo`, `costos_adicionales`, `costo_operativo`, `margen_pct`, `precio_neto`, `porcentaje_comision`, `iva_pct`, `precio_calculado`, `estado_codigo` |
+| `oferta` | Postulación de un Transportista a una Solicitud (RF-17). Solo puede postularse un Transportista **habilitado** (verificado a nivel de policy). Acá queda el **único precio** que ve el Cliente (`precio_calculado`), con la cantidad de viajes y de ayudantes. Una oferta vigente (no retirada) por solicitud, Transportista y vehículo (`uq_oferta_vigente_por_vehiculo`). | `vehiculo_id`, `cantidad_viajes`, `cantidad_ayudantes`, `precio_calculado`, `estado_codigo` |
+| `oferta_costo` | Desglose del precio de la oferta (1 a 1, D-23), para auditarlo y para que el `viaje` lo copie al confirmarse. Sólo lo leen el Transportista dueño y el Administrador; nadie lo modifica ni lo borra. | `oferta_id`, `distancia_km`, `duracion_ruta_h`, `duracion_operacion_h`, `costo_laboral`, `costo_vehiculo`, `costos_adicionales`, `costo_operativo`, `margen_pct`, `precio_neto`, `porcentaje_comision`, `iva_pct` |
 
 ### Dominio 5 — Viajes
 *La entidad transaccional central — acá vive el snapshot histórico (RNF-03).*
@@ -153,12 +154,14 @@ Todas las tablas `config_*` están **versionadas**: `vigente_desde`/`vigente_has
 | Tabla | Rol en el negocio |
 |---|---|
 | `config_costo_laboral` | Costo horario de chofer y ayudantes (RN-01): salarios básicos, adicionales, viáticos, cargas sociales (seguridad social, obra social, ART), seguro de vida, horas mensuales y diarias. Igual para todos los Transportistas. |
-| `config_operacion` | Parámetros del tiempo de carga y descarga (RN-01): tiempo base, por objeto, por kg, por m³, por metro caminado y por piso de escalera, y la eficiencia de cada ayudante. `tiempo_espera_min` está reservado y hoy no entra en la fórmula. |
+| `config_operacion` | Parámetros del tiempo de carga y descarga (RN-01): tiempo base, por objeto, por kg, por m³, por metro caminado y por piso de escalera, y la eficiencia de cada ayudante. `tiempo_espera_min` (espera y acceso en el lugar) se suma una vez por viaje (D-24). |
 | `config_impuesto` | % de IVA aplicado al precio final. |
 | `config_comision` | % de comisión de la plataforma (RN-03). |
-| `config_tarifa` | **DEPRECATED.** Modelo de tarifa plana original (tarifa base + valor por km/m³/hora + recargos), reemplazado por `config_costo_laboral` + `config_operacion` + `vehiculo_costo`. Se elimina en una migración posterior. |
+| `config_costo_vehiculo` | Costos de referencia del vehículo por tipo (D-34): combustible, rendimiento, neumáticos, mantenimiento, depreciación, seguro y patente. Una fila vigente por `tipo_vehiculo`; los define la plataforma, no el Transportista, para que no pueda inflarlos. Seed con valores de trabajo (`0017`). |
+| `config_margen` | % de margen de la plataforma sobre el costo operativo (D-15). Igual para todos los Transportistas; la seed es 0 % hasta que el equipo defina otro valor. |
+| `config_tarifa` | **DEPRECATED.** Modelo de tarifa plana original (tarifa base + valor por km/m³/hora + recargos), reemplazado por `config_costo_laboral` + `config_operacion` + `config_costo_vehiculo`. Se elimina en una migración posterior. |
 
-No existe configuración de **margen**: si es un parámetro de plataforma o de cada Transportista es una decisión abierta. Cada oferta guarda el margen aplicado en `oferta.margen_pct`.
+Cada oferta guarda el margen, la comisión y el IVA aplicados en `oferta_costo`, así un cambio posterior de la configuración no altera una oferta ya hecha.
 | `estado_pago` | Catálogo: `pendiente` / `retenido` / `liberado` / `reembolsado_total` / `reembolsado_parcial`. |
 | `pago` | Transacción entre Cliente y Transportista, 1:1 con `viaje`. |
 | `pago_movimiento` | Ledger de eventos (`captura`, `reembolso_parcial`, `reembolso_total`, `liberacion_parcial`, `liberacion_total`) — necesario porque RF-03 permite reembolsos/liberaciones *parciales*, y una sola fila de `pago` perdería ese historial. Vincula opcionalmente al `incidente` que lo originó. |
@@ -196,16 +199,18 @@ Todas las tablas tienen RLS activo. Filosofía general: **lectura pública** en 
 | `usuario` / `cliente` | ve/edita lo propio | ve perfiles de transportista (públicos); ve al cliente con quien tiene una oferta activa | todo |
 | `administrador` | — | — | ve lo propio + otros admins; alta solo por otro admin |
 | `transportista` / `vehiculo` | lectura pública | lectura pública; edita lo propio (campos de habilitación protegidos por trigger) | todo |
-| `vehiculo_costo` | — | ve/crea/edita el de sus propios vehículos | ve/crea/edita (sin DELETE directo para nadie: se borra en cascada con el `vehiculo`) |
+| `vehiculo_costo` (DEPRECATED) | — | ve/crea/edita el de sus propios vehículos | ve/crea/edita |
+| `config_costo_vehiculo` | lectura | lectura (la necesita para calcular el precio de su oferta) | ABM completo |
 | `documento_transportista` | — | sube los propios | revisa (aprueba/rechaza) |
 | `zona`, `tipo_vehiculo`, `objeto`, catálogos `estado_*`/`tipo_*` | lectura pública | lectura pública | ABM completo |
 | `transportista_zona` | lectura pública | gestiona las propias | ABM completo |
 | `solicitud` | ve/crea las propias; sólo puede cancelarlas (sin edición, trigger `0014`) | ve publicadas de su zona + en las que ya se postuló | todo |
 | `solicitud_objeto` | hereda visibilidad de `solicitud` | hereda visibilidad de `solicitud` | todo |
-| `oferta` | ve las de sus solicitudes (**Atención:** todas las columnas, incluido el desglose de costo); acepta/rechaza | crea/ve/retira las propias (requiere estar habilitado) | todo |
+| `oferta` | ve las de sus solicitudes (precio, viajes y ayudantes); al cancelar su solicitud, las pendientes pasan a `no_seleccionada` | crea (sólo vía backend, con su desglose) / ve / retira las propias (requiere estar habilitado) | todo |
+| `oferta_costo` | — | ve el desglose de las propias | ve |
 | `viaje` | ve/actualiza el propio | ve/actualiza el propio | todo (campos snapshot protegidos por trigger) |
 | `viaje_ubicacion` | ve el de sus viajes | inserta solo en sus propios viajes | todo |
-| `config_costo_laboral` / `config_operacion` / `config_impuesto` / `config_comision` | lectura | lectura (la necesita para calcular el precio de su oferta) | ABM completo |
+| `config_costo_laboral` / `config_operacion` / `config_impuesto` / `config_comision` / `config_margen` | lectura | lectura (la necesita para calcular el precio de su oferta) | ABM completo |
 | `config_tarifa` (deprecada) | — | — | exclusivo |
 | `pago` / `pago_movimiento` | ve el de sus viajes | ve el de sus viajes | gestiona |
 | `resena` | lectura pública; inserta solo sobre su propio viaje finalizado | lectura pública | — |
@@ -219,8 +224,13 @@ Todas las políticas usan `(select auth.uid())` (no `auth.uid()` directo) para q
 
 **Riesgos conocidos, sin resolver:**
 - `vehiculo_select` es `USING (true)`: cualquier usuario autenticado lee la **patente** de cualquier vehículo. El plan pide mostrarla recién después de aceptar la oferta (módulo 9); hoy sólo lo respeta la API.
-- `oferta_select` y `viaje_select` le dejan al Cliente leer **todas** las columnas, incluidos `costo_operativo` y el desglose. La regla "el Cliente sólo ve el precio final" hoy la cumple sólo la API del backend, no la base.
-- `oferta_update` deja a Cliente y Transportista modificar cualquier columna de la oferta, incluido `precio_calculado`. No hay trigger de protección como en `viaje` y `transportista`.
+- `viaje_select` le deja al Cliente leer **todas** las columnas, incluido el desglose de costo. Se resuelve en el módulo 9 con `viaje_costo` (D-23), igual que `oferta_costo`.
+
+**Resuelto en la migración `0016` (2026-10-03):**
+- El desglose de la oferta pasó a `oferta_costo`, que el Cliente no puede leer.
+- `trg_proteger_campos_oferta` (BEFORE UPDATE): un usuario no cambia precio, viajes, ayudantes ni FK. Sólo el Transportista dueño retira una oferta pendiente, y el Cliente que cancela su solicitud pasa las pendientes a `no_seleccionada`. Aceptar (módulo 9) lo hace `fn_aceptar_oferta`, `SECURITY DEFINER`.
+- `trg_exigir_costo_oferta` (constraint trigger diferido): una oferta sin su fila en `oferta_costo` se rechaza al hacer COMMIT. Una llamada de PostgREST inserta en una sola tabla, así que no puede crear ofertas con un precio inventado: las crea sólo el backend, que calcula el precio.
+- `trg_proteger_alta_oferta` (BEFORE INSERT): la oferta nace `pendiente`, con un vehículo del Transportista y sobre una solicitud `publicada`.
 
 **Resuelto en la migración `0010` (2026-10-02):** `solicitud_select` consultaba `oferta` y `oferta_select` consultaba `solicitud`, lo que daba `infinite recursion detected in policy` en cualquier lectura autenticada de `solicitud`, `oferta`, `usuario`, `cliente` o `solicitud_objeto`. La rama "el Transportista ya ofertó" de `solicitud_select` usa ahora `fn_tiene_oferta_en_solicitud` (`SECURITY DEFINER`).
 
@@ -247,6 +257,8 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
+| 2026-10-03 | `0017` | Módulo 8: `config_costo_vehiculo`, costos del vehículo de referencia por tipo definidos por la plataforma (D-34), con valores de trabajo para los 6 tipos; `vehiculo_costo` → DEPRECATED. 41 → 42 tablas. |
+| 2026-10-03 | `0016` | Módulo 8: `config_margen` (D-15, seed 0 %); `oferta_costo` con el desglose que sale de `oferta` (D-23); protección de alta y edición de la oferta y desglose obligatorio; una oferta vigente por vehículo. 39 → 41 tablas. |
 | 2026-10-03 | `0015` | Módulo 7: funciones de compatibilidad (D-21), listado y aviso in-app de solicitudes compatibles; índice único de avisos. |
 | 2026-10-03 | `0014` | Módulo 6: fecha y franja del servicio en `solicitud`; solicitud sin edición, objetos fijos y copia del catálogo por triggers (D-20, RN-08). |
 | 2026-10-03 | `0013` | Módulo 4: `tipo_vehiculo` con medidas estándar y 6 tipos nuevos (D-32); `volumen_estandar_m3` deprecada. |

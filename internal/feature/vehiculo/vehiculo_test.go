@@ -2,7 +2,6 @@ package vehiculo_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/json"
 	"math/big"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -111,11 +109,6 @@ func (a *api) crear(id database.Identity, tipoID string) vehiculo.VehiculoRespon
 	return v
 }
 
-const costosValidos = `{"combustible_precio_l":1350.50,"rendimiento_km_l":9.5,"cantidad_neumaticos":4,
-	"costo_neumatico":185000,"vida_neumatico_km":50000,"costo_mantenimiento_km":45.75,
-	"valor_compra":28000000,"valor_residual":9000000,"vida_util_km":400000,
-	"seguro_mensual":95000,"patente_mensual":38000}`
-
 func TestTipos(t *testing.T) {
 	a := nuevaAPI(t)
 	code, raw := a.llamar(dbtest.CrearUsuario(t, "cliente"), "GET", "/tipos-vehiculo", nil)
@@ -134,19 +127,21 @@ func TestCrearYListar(t *testing.T) {
 	transportista := dbtest.CrearTransportista(t)
 	tipo := a.tipoID("Furgón chico")
 
-	code, raw := a.llamar(transportista, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, "ab 123-cd"))
+	// Patente al azar escrita en minúscula, con espacio y guion (ej. "ab 123-cd").
+	patente := nuevaPatente()
+	escrita := strings.ToLower(patente[:2]) + " " + patente[2:5] + "-" + strings.ToLower(patente[5:])
+	code, raw := a.llamar(transportista, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, escrita))
 	require.Equal(t, http.StatusCreated, code, string(raw))
 	var v vehiculo.VehiculoResponse
 	require.NoError(t, json.Unmarshal(raw, &v))
-	assert.Equal(t, "AB123CD", v.Patente, "la patente se normaliza")
+	assert.Equal(t, patente, v.Patente, "la patente se normaliza")
 	assert.Equal(t, "Furgón chico", v.TipoVehiculoNombre)
 	assert.Equal(t, "2.4", v.LargoUtilM.String())
 	assert.True(t, v.Activo)
-	assert.False(t, v.TieneCostos)
 
 	t.Run("patente duplicada", func(t *testing.T) {
 		otro := dbtest.CrearTransportista(t)
-		code, raw := a.llamar(otro, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, "AB123CD"))
+		code, raw := a.llamar(otro, "POST", "/transportista/vehiculos", cuerpoVehiculo(tipo, patente))
 		assert.Equal(t, http.StatusConflict, code)
 		assert.Equal(t, "patente_duplicada", errorDe(t, raw).Code)
 	})
@@ -217,96 +212,4 @@ func TestActivo(t *testing.T) {
 	code, raw = a.llamar(transportista, "PUT", "/transportista/vehiculos/"+v.ID+"/activo", `{}`)
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "datos_incompletos", errorDe(t, raw).Code)
-}
-
-func TestCostos(t *testing.T) {
-	a := nuevaAPI(t)
-	transportista := dbtest.CrearTransportista(t)
-	v := a.crear(transportista, a.tipoID("Furgón grande"))
-	ruta := "/transportista/vehiculos/" + v.ID + "/costos"
-
-	code, raw := a.llamar(transportista, "GET", ruta, nil)
-	assert.Equal(t, http.StatusNotFound, code)
-	assert.Equal(t, "costos_no_cargados", errorDe(t, raw).Code)
-
-	code, raw = a.llamar(transportista, "PUT", ruta, costosValidos)
-	require.Equal(t, http.StatusOK, code, string(raw))
-	var c vehiculo.CostosResponse
-	require.NoError(t, json.Unmarshal(raw, &c))
-	assert.Equal(t, "1350.5", c.CombustiblePrecioL.String(), "los montos se guardan exactos")
-	assert.Equal(t, "45.75", c.CostoMantenimientoKm.String())
-
-	// Reemplazo: el segundo PUT actualiza la misma fila.
-	code, raw = a.llamar(transportista, "PUT", ruta, strings.Replace(costosValidos, "1350.50", "1400", 1))
-	require.Equal(t, http.StatusOK, code, string(raw))
-	code, raw = a.llamar(transportista, "GET", ruta, nil)
-	require.Equal(t, http.StatusOK, code)
-	assert.Contains(t, string(raw), `"combustible_precio_l":1400`)
-
-	code, raw = a.llamar(transportista, "GET", "/transportista/vehiculos", nil)
-	require.Equal(t, http.StatusOK, code)
-	assert.Contains(t, string(raw), `"tiene_costos":true`)
-
-	tests := []struct {
-		name      string
-		body      string
-		wantCampo string
-	}{
-		{"residual mayor a compra", strings.Replace(costosValidos, `"valor_residual":9000000`, `"valor_residual":30000000`, 1), "valor_residual"},
-		{"rendimiento cero", strings.Replace(costosValidos, `"rendimiento_km_l":9.5`, `"rendimiento_km_l":0`, 1), "rendimiento_km_l"},
-		{"neumáticos cero", strings.Replace(costosValidos, `"cantidad_neumaticos":4`, `"cantidad_neumaticos":0`, 1), "cantidad_neumaticos"},
-		{"km con decimales", strings.Replace(costosValidos, `"vida_util_km":400000`, `"vida_util_km":400000.5`, 1), "vida_util_km"},
-		{"monto negativo", strings.Replace(costosValidos, `"seguro_mensual":95000`, `"seguro_mensual":-1`, 1), "seguro_mensual"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			code, raw := a.llamar(transportista, "PUT", ruta, tc.body)
-			assert.Equal(t, http.StatusBadRequest, code, string(raw))
-			e := errorDe(t, raw)
-			assert.Equal(t, "datos_invalidos", e.Code)
-			assert.Contains(t, e.Details, tc.wantCampo)
-		})
-	}
-
-	t.Run("otro transportista no los toca", func(t *testing.T) {
-		otro := dbtest.CrearTransportista(t)
-		code, raw := a.llamar(otro, "PUT", ruta, costosValidos)
-		assert.Equal(t, http.StatusNotFound, code)
-		assert.Equal(t, "vehiculo_no_encontrado", errorDe(t, raw).Code)
-		code, _ = a.llamar(otro, "GET", ruta, nil)
-		assert.Equal(t, http.StatusNotFound, code)
-	})
-}
-
-// TestCostosSoloDuenoYAdministrador es el criterio de terminado del módulo 4:
-// nadie más que el dueño y el Administrador lee vehiculo_costo, ni por la API ni
-// directo contra la base (PostgREST).
-func TestCostosSoloDuenoYAdministrador(t *testing.T) {
-	a := nuevaAPI(t)
-	duenio := dbtest.CrearTransportista(t)
-	otro := dbtest.CrearTransportista(t)
-	ctx := context.Background()
-	v := a.crear(duenio, a.tipoID("Utilitario"))
-	code, raw := a.llamar(duenio, "PUT", "/transportista/vehiculos/"+v.ID+"/costos", costosValidos)
-	require.Equal(t, http.StatusOK, code, string(raw))
-
-	contar := func(id database.Identity) int {
-		var n int
-		require.NoError(t, a.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT count(*) FROM vehiculo_costo WHERE vehiculo_id = $1`, v.ID).Scan(&n)
-		}))
-		return n
-	}
-	assert.Equal(t, 1, contar(duenio), "el dueño")
-	assert.Equal(t, 1, contar(dbtest.CrearAdministrador(t)), "el Administrador")
-	assert.Equal(t, 0, contar(otro), "otro Transportista")
-	assert.Equal(t, 0, contar(dbtest.CrearUsuario(t, "cliente")), "un Cliente")
-
-	t.Run("nadie más los modifica", func(t *testing.T) {
-		require.NoError(t, a.db.WithinTx(ctx, otro, func(tx pgx.Tx) error {
-			tag, err := tx.Exec(ctx, `UPDATE vehiculo_costo SET combustible_precio_l = 1 WHERE vehiculo_id = $1`, v.ID)
-			assert.Zero(t, tag.RowsAffected())
-			return err
-		}))
-	})
 }

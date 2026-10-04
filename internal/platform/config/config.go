@@ -22,6 +22,9 @@ type Config struct {
 	// GeocodificadorProveedor elige cómo se obtienen las coordenadas de una
 	// dirección (D-20): "aproximado" (sólo desarrollo) o "google".
 	GeocodificadorProveedor string
+	// RuteoProveedor elige cómo se calcula el trayecto de una oferta (D-24):
+	// "aproximado" (sólo desarrollo) o "google".
+	RuteoProveedor string
 }
 
 type HTTPConfig struct {
@@ -96,6 +99,7 @@ func Load() (Config, error) {
 			Format: getenv("LOG_FORMAT", "json"),
 		},
 		GeocodificadorProveedor: getenv("GEOCODIFICADOR_PROVEEDOR", "aproximado"),
+		RuteoProveedor:          getenv("RUTEO_PROVEEDOR", "aproximado"),
 	}
 
 	if base := strings.TrimRight(cfg.Supabase.URL, "/"); base != "" {

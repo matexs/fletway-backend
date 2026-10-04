@@ -191,11 +191,11 @@ Cada módulo: requisitos, decisiones, base, backend, app y criterio de terminado
 ### Módulo 4 — Vehículos, costos y zonas
 
 - **Requisitos:** RF-18, RN-04.
-- **Decisiones:** D-21, costos en un segundo paso del alta del vehículo, A-1.
+- **Decisiones:** D-21, A-1. (Los costos en un segundo paso del alta se reemplazaron por costos de referencia por tipo, D-34.)
 - **Base:** migración de `tipo_vehiculo` (§2.3).
-- **Backend:** `POST/GET /api/transportista/vehiculos` (con `vehiculo_costo` en un segundo paso: `PUT /api/transportista/vehiculos/{id}/costos`), activar o desactivar vehículo; `GET /api/zonas`; `PUT /api/transportista/zonas` (multi-selección); `PUT /api/transportista/disponibilidad`.
-- **App:** alta de vehículo (elige el tipo, la app propone sus medidas estándar y el Transportista las corrige; peso), pantalla separada de costos con ayuda por campo, selector de zonas, interruptor de disponibilidad.
-- **Terminado:** nadie más que el dueño y el Administrador lee `vehiculo_costo` (test de RLS).
+- **Backend:** `POST/GET /api/transportista/vehiculos` (los costos del segundo paso se retiraron en el módulo 8, D-34), activar o desactivar vehículo; `GET /api/zonas`; `PUT /api/transportista/zonas` (multi-selección); `PUT /api/transportista/disponibilidad`.
+- **App:** alta de vehículo (elige el tipo, la app propone sus medidas estándar y el Transportista las corrige; peso), (la pantalla de costos se retiró en el módulo 8, D-34), selector de zonas, interruptor de disponibilidad.
+- **Terminado:** nadie más que el dueño y el Administrador lee `vehiculo_costo` (test de RLS). Retirado en el módulo 8 junto con la tabla (D-34).
 
 ### Módulo 5 — Catálogo de objetos
 
@@ -230,7 +230,7 @@ Cada módulo: requisitos, decisiones, base, backend, app y criterio de terminado
 
 - **Requisitos:** RF-17, RN-01, RN-02.
 - **Decisiones:** D-13, D-14, D-15, D-23, D-24; `ALGORITMO_COTIZACION.md`, `ALGORITMO_VIAJES_EMPAQUETADO.md`.
-- **Base:** `config_margen` (versionada, seed con el margen inicial que defina el equipo; 0 si no hay otro valor); tabla **`oferta_costo`** (1 a 1, RLS sólo Transportista dueño y Administrador) con las columnas de costo que hoy están en `oferta` (se mueven; la tabla está vacía); `trg_proteger_campos_oferta` sobre lo que queda en `oferta`.
+- **Base:** `config_costo_vehiculo` (costos de referencia por tipo de vehículo, D-34); `config_margen` (versionada, seed con el margen inicial que defina el equipo; 0 si no hay otro valor); tabla **`oferta_costo`** (1 a 1, RLS sólo Transportista dueño y Administrador) con las columnas de costo que hoy están en `oferta` (se mueven; la tabla está vacía); `trg_proteger_campos_oferta` sobre lo que queda en `oferta`.
 - **Backend:** interfaz `Ruteador` con proveedores `aproximado` (local: línea recta × 1,3 a 30 km/h), `fijo` (tests) y `google` (producción, cuando se integre), elegidos con `RUTEO_PROVEEDOR`; con `APP_ENV=production` y otro proveedor, el backend no arranca. `POST /api/solicitudes/{id}/ofertas` (vehículo + ayudantes 0..3; `planificarViajes` con timeout de 5 s; precio con redondeo final; guarda `oferta` y `oferta_costo`), `POST /api/ofertas/{id}/retirar`, `GET /api/transportista/ofertas`. La vinculación de la cuenta de Mercado Pago como requisito para ofertar se activa en el módulo 12.
 - **App:** armar oferta (elegir vehículo y ayudantes; ver precio y viajes calculados o el motivo si la carga no entra), mis ofertas.
 - **Terminado:** tests table-driven de las funciones puras de precio y de viajes (casos de `ALGORITMO_*`); el Cliente no puede leer el desglose ni nadie modificar el precio (tests de RLS y del trigger).

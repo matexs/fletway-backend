@@ -15,7 +15,6 @@ var (
 	errVehiculoNoEncontrado = errors.New("vehiculo: no encontrado")
 	errPatenteDuplicada     = errors.New("vehiculo: patente duplicada")
 	errTipoInexistente      = errors.New("vehiculo: tipo inexistente")
-	errSinCostos            = errors.New("vehiculo: sin costos cargados")
 )
 
 type repository struct {
@@ -62,14 +61,14 @@ func (r *repository) tipos(ctx context.Context, id database.Identity) ([]TipoVeh
 const selectVehiculo = `
 	SELECT v.id::text, v.tipo_vehiculo_id::text, tv.nombre, v.patente, v.marca, v.modelo,
 	       v.largo_util_m::text, v.ancho_util_m::text, v.alto_util_m::text, v.peso_maximo_kg::text,
-	       v.activo, EXISTS (SELECT 1 FROM vehiculo_costo c WHERE c.vehiculo_id = v.id), v.creado_en
+	       v.activo, v.creado_en
 	FROM vehiculo v
 	JOIN tipo_vehiculo tv ON tv.id = v.tipo_vehiculo_id`
 
 func escanearVehiculo(row pgx.Row) (VehiculoResponse, error) {
 	var v VehiculoResponse
 	err := row.Scan(&v.ID, &v.TipoVehiculoID, &v.TipoVehiculoNombre, &v.Patente, &v.Marca, &v.Modelo,
-		&v.LargoUtilM, &v.AnchoUtilM, &v.AltoUtilM, &v.PesoMaximoKg, &v.Activo, &v.TieneCostos, &v.CreadoEn)
+		&v.LargoUtilM, &v.AnchoUtilM, &v.AltoUtilM, &v.PesoMaximoKg, &v.Activo, &v.CreadoEn)
 	return v, err
 }
 
@@ -156,92 +155,4 @@ func (r *repository) cambiarActivo(ctx context.Context, id database.Identity, ve
 		return VehiculoResponse{}, fmt.Errorf("cambiar activo: %w", err)
 	}
 	return v, nil
-}
-
-const columnasCostos = `combustible_precio_l::text, rendimiento_km_l::text, cantidad_neumaticos,
-	costo_neumatico::text, vida_neumatico_km::text, costo_mantenimiento_km::text, valor_compra::text,
-	valor_residual::text, vida_util_km::text, seguro_mensual::text, patente_mensual::text, actualizado_en`
-
-func escanearCostos(row pgx.Row) (CostosResponse, error) {
-	var c CostosResponse
-	err := row.Scan(&c.CombustiblePrecioL, &c.RendimientoKmL, &c.CantidadNeumaticos, &c.CostoNeumatico,
-		&c.VidaNeumaticoKm, &c.CostoMantenimientoKm, &c.ValorCompra, &c.ValorResidual, &c.VidaUtilKm,
-		&c.SeguroMensual, &c.PatenteMensual, &c.ActualizadoEn)
-	return c, err
-}
-
-// esPropio indica si el vehículo existe y es del Transportista de la identidad.
-func esPropio(ctx context.Context, tx pgx.Tx, vehiculoID string) (bool, error) {
-	var es bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM vehiculo
-		WHERE id = $1 AND transportista_id = (select auth.uid()))`, vehiculoID).Scan(&es)
-	return es, err
-}
-
-// guardarCostos crea o reemplaza los costos de un vehículo propio. Devuelve
-// errVehiculoNoEncontrado si no existe o no es del Transportista.
-func (r *repository) guardarCostos(ctx context.Context, id database.Identity, vehiculoID string, c CostosRequest) (CostosResponse, error) {
-	var out CostosResponse
-	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
-		ok, err := esPropio(ctx, tx, vehiculoID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return errVehiculoNoEncontrado
-		}
-		out, err = escanearCostos(tx.QueryRow(ctx, `
-			INSERT INTO vehiculo_costo (vehiculo_id, combustible_precio_l, rendimiento_km_l, cantidad_neumaticos,
-			    costo_neumatico, vida_neumatico_km, costo_mantenimiento_km, valor_compra, valor_residual,
-			    vida_util_km, seguro_mensual, patente_mensual, actualizado_en)
-			VALUES ($1, $2::numeric, $3::numeric, $4, $5::numeric, $6::numeric, $7::numeric, $8::numeric,
-			        $9::numeric, $10::numeric, $11::numeric, $12::numeric, now())
-			ON CONFLICT (vehiculo_id) DO UPDATE SET
-			    combustible_precio_l = EXCLUDED.combustible_precio_l,
-			    rendimiento_km_l = EXCLUDED.rendimiento_km_l,
-			    cantidad_neumaticos = EXCLUDED.cantidad_neumaticos,
-			    costo_neumatico = EXCLUDED.costo_neumatico,
-			    vida_neumatico_km = EXCLUDED.vida_neumatico_km,
-			    costo_mantenimiento_km = EXCLUDED.costo_mantenimiento_km,
-			    valor_compra = EXCLUDED.valor_compra,
-			    valor_residual = EXCLUDED.valor_residual,
-			    vida_util_km = EXCLUDED.vida_util_km,
-			    seguro_mensual = EXCLUDED.seguro_mensual,
-			    patente_mensual = EXCLUDED.patente_mensual,
-			    actualizado_en = now()
-			RETURNING `+columnasCostos,
-			vehiculoID, c.CombustiblePrecioL, c.RendimientoKmL, c.CantidadNeumaticos,
-			c.CostoNeumatico, c.VidaNeumaticoKm, c.CostoMantenimientoKm, c.ValorCompra, c.ValorResidual,
-			c.VidaUtilKm, c.SeguroMensual, c.PatenteMensual))
-		return err
-	})
-	if err != nil {
-		return CostosResponse{}, fmt.Errorf("guardar costos: %w", err)
-	}
-	return out, nil
-}
-
-// costos lee los costos de un vehículo propio. Devuelve errVehiculoNoEncontrado o
-// errSinCostos.
-func (r *repository) costos(ctx context.Context, id database.Identity, vehiculoID string) (CostosResponse, error) {
-	var out CostosResponse
-	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
-		ok, err := esPropio(ctx, tx, vehiculoID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return errVehiculoNoEncontrado
-		}
-		out, err = escanearCostos(tx.QueryRow(ctx,
-			`SELECT `+columnasCostos+` FROM vehiculo_costo WHERE vehiculo_id = $1`, vehiculoID))
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errSinCostos
-		}
-		return err
-	})
-	if err != nil {
-		return CostosResponse{}, fmt.Errorf("leer costos: %w", err)
-	}
-	return out, nil
 }

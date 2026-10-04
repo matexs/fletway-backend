@@ -48,6 +48,7 @@
 | D-31 | Proceso: revisión de PRs, definición de terminado y casos de prueba | CONFIRMADA (2026-10-01) |
 | D-32 | `tipo_vehiculo` con medidas estándar de referencia | CONFIRMADA (2026-10-01) |
 | D-33 | Cierre de la revisión de documentación del Transportista | CONFIRMADA (2026-10-03) |
+| D-34 | Costos del vehículo de referencia por tipo, definidos por la plataforma | CONFIRMADA (2026-10-03) |
 
 ---
 
@@ -243,7 +244,8 @@ suite: cada feature testea que un usuario no puede ver/tocar lo ajeno.
   (1 − comisión) × (1 + IVA).
 - La distancia del Transportista al origen **no** se calcula ni se cobra.
 - Costos del vehículo en la tabla privada `vehiculo_costo`, porque `vehiculo` es de
-  lectura pública. `vehiculo.peso_maximo_kg` = carga útil.
+  lectura pública. `vehiculo.peso_maximo_kg` = carga útil. **Reemplazado por D-34:** los costos
+  son de referencia por tipo de vehículo (`config_costo_vehiculo`).
 - Parámetros versionados en `config_costo_laboral`, `config_operacion`,
   `config_impuesto` y `config_comision`. `config_tarifa` queda deprecada.
 - El desglose se guarda en `oferta` y el `viaje` lo copia (el `viaje` lo crea la sesión
@@ -425,6 +427,13 @@ Además, sólo Transportistas `habilitado` y sin veto vigente.
     `viaje_costo`, genera los PIN (D-26), pasa las demás ofertas a `no_seleccionada` y la
     solicitud a `asignada`. Hace falta porque la sesión del Cliente no puede leer `oferta_costo`.
 
+**Implementación (módulo 8, migración `0016`, 2026-10-03):** para que "se retira y se crea otra"
+valga también con el mismo vehículo, el `UNIQUE (solicitud, transportista, vehículo)` pasó a un
+índice único parcial que ignora las ofertas `retiradas`. Una oferta sin su fila en `oferta_costo` se
+rechaza al hacer COMMIT (trigger diferido), así que sólo el backend, que calcula el precio, crea
+ofertas. `POST /api/solicitudes/{id}/ofertas/cotizar` muestra el precio antes de ofertar, sin
+guardar nada.
+
 ---
 
 ## D-24 — Ajustes a la fórmula de precio y al cálculo de viajes · CONFIRMADA (2026-10-01)
@@ -597,3 +606,33 @@ documento. Esta decisión fija cuándo cambia el estado de la cuenta.
   migración `0012`), así que ni la API ni PostgREST pueden saltearlo.
 - **Archivos para el Administrador:** el listado de revisión trae una URL firmada por documento,
   que vence a los 10 minutos (D-19), pedida a Storage con el JWT del Administrador.
+
+---
+
+## D-34 — Costos del vehículo de referencia por tipo · CONFIRMADA (2026-10-03)
+
+**Decisión:** los costos del vehículo que entran en el precio (combustible, rendimiento,
+neumáticos, mantenimiento, depreciación, seguro y patente, `ALGORITMO_COTIZACION.md` §4.2) los
+define **la plataforma por tipo de vehículo**, en `config_costo_vehiculo` (versionada como las
+demás `config_*`, una fila vigente por tipo, escritura sólo Administrador). El Transportista ya no
+los carga. Reemplaza el "segundo paso del alta" de costos del módulo 4.
+
+**Por qué:**
+- Si cada Transportista carga sus costos, tiene incentivo a inflarlos para subir su precio. Es el
+  mismo motivo por el que el margen es de plataforma (D-15), pero al revés: evita una carrera al
+  alza.
+- Con un valor de referencia por tipo, dos ofertas con el mismo tipo de vehículo sólo difieren
+  por la cantidad de viajes y de ayudantes, y el Cliente compara sobre una base pareja.
+- El Transportista no tiene que estimar datos difíciles (vida útil en km, valor residual) y un
+  cambio de precio del combustible se actualiza en un solo lugar.
+
+**Lo que se resigna:** dos vehículos del mismo tipo cuestan igual aunque uno sea más nuevo o use
+otro combustible. Se descartó, por ahora, que el Transportista ajuste el valor dentro de una banda:
+suma complejidad y reabre el incentivo.
+
+**Implementación:** migración `0017` con valores de trabajo estimados para los 6 tipos (octubre de
+2026; se reemplazan con un `UPDATE` como el resto de las `config_*`, D-24). Las medidas y la carga
+útil siguen siendo las del vehículo real (el cálculo de viajes las necesita). `vehiculo_costo` y
+los endpoints `PUT/GET /api/transportista/vehiculos/{id}/costos` se retiran; la tabla queda
+DEPRECATED (vacía en `dbFletway`) hasta el DROP de lo deprecado.
+
