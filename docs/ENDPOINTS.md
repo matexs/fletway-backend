@@ -421,6 +421,60 @@ mismo vehículo. Errores: `404 oferta_no_encontrada`, `409 oferta_no_retirable`.
 Sus ofertas, las más nuevas primero, con el desglose. `solicitud_estado` trae `vencida` calculado al
 leer (D-20). `200` con `[Oferta]`. Error: `403 no_es_transportista`.
 
+#### `GET /api/solicitudes/{id}/ofertas` (Cliente dueño)
+Ofertas **pendientes** de la solicitud ordenadas por score (RN-05, `ALGORITMO_SCORE.md`): precio,
+calificación (3,5 neutral sin reseñas) y tasa de cumplimiento, sin cercanía (D-25). Sin parámetros
+trae las 3 primeras; `?ver_mas=true` sigue la misma lista desde `cursor` (por defecto 3) con `limit`
+(por defecto 10, hasta 50). Nunca expone el desglose ni la patente. `200`:
+
+```json
+{ "cantidad_ayudantes_solicitados": 1, "total": 5, "siguiente_cursor": 3,
+  "ofertas": [{ "id": "uuid", "transportista_id": "uuid", "transportista_nombre": "Tomás Pérez",
+    "calificacion_promedio": 4.5, "cantidad_resenas": 12, "tasa_cumplimiento": 100,
+    "vehiculo_tipo": "Furgón grande", "cantidad_viajes": 1, "cantidad_ayudantes": 1,
+    "precio_calculado": 106900.15, "creado_en": "2026-10-03T15:00:00Z" }] }
+```
+
+`calificacion_promedio` es `null` sin reseñas; `siguiente_cursor` es `null` si no hay más. Errores:
+`400 datos_invalidos` (`cursor` o `limit`), `404 solicitud_no_encontrada` (no existe o no es suya).
+
+#### `POST /api/ofertas/{id}/aceptar` (Cliente dueño de la solicitud)
+Llama a `fn_aceptar_oferta` (`0018`, D-23): en una transacción crea el viaje con sus snapshots, copia
+el desglose a `viaje_costo`, genera los dos PIN en `viaje_pin`, acepta la oferta, pasa las demás a
+`no_seleccionada` y la solicitud a `asignada`. `201` con el viaje confirmado (recién acá se ve la
+patente):
+
+```json
+{ "id": "uuid", "estado": "confirmado", "solicitud_id": "uuid", "transportista_id": "uuid",
+  "transportista_nombre": "Tomás Pérez", "vehiculo_patente": "AC456EF",
+  "vehiculo_marca_modelo": "Iveco Daily", "monto_total": 106900.15, "cantidad_viajes": 1,
+  "cantidad_ayudantes": 1, "fecha_servicio_deseada": "2026-10-08",
+  "origen_direccion": "Av. Centenario 1200", "destino_direccion": "Corrientes 3500",
+  "creado_en": "2026-10-03T15:00:00Z" }
+```
+
+Errores: `404 oferta_no_encontrada` (no existe o la solicitud no es suya), `409 oferta_no_disponible`
+(retirada, ya aceptada o no seleccionada), `409 solicitud_no_asignable` (ya no publicada o vencida),
+`409 transportista_inhabilitado` (el Transportista dejó de estar habilitado o está vetado).
+
+### Perfil del Transportista (RF-11)
+
+#### `GET /api/transportistas/{id}` (autenticado)
+Perfil público de un Transportista habilitado. Sin email, teléfono, patentes ni datos financieros.
+`200`:
+
+```json
+{ "id": "uuid", "nombre": "Tomás Pérez", "forma_trabajo": "Mudanzas chicas, con cuidado.",
+  "calificacion_promedio": 4.5, "cantidad_resenas": 12, "tasa_cumplimiento": 100,
+  "zonas": ["San Isidro", "Tigre"], "tipos_vehiculo": ["Furgón grande"],
+  "resenas": [{ "calificacion": 5, "mensaje": "Impecable.", "cliente_nombre": "Clara",
+    "creado_en": "2026-09-30T18:00:00Z" }],
+  "en_fletway_desde": "2026-09-01T12:00:00Z" }
+```
+
+Trae las 20 reseñas más recientes y sólo los tipos de vehículos activos. Error: `404
+transportista_no_encontrado` (no existe o no está habilitado).
+
 ---
 
 ## Endpoints planificados (no implementados)
@@ -430,9 +484,6 @@ leer (D-20). `200` con `[Oferta]`. Error: `403 no_es_transportista`.
 
 | Mód. | RF/RN | Método + path | Rol | Notas |
 |------|-------|---------------|-----|-------|
-| 9 | RF-07 / RN-05 | `GET /api/solicitudes/{id}/ofertas` | Cliente | **top 3 por score** (`ALGORITMO_SCORE.md`); `?ver_mas=true` pagina. Sólo `precio_calculado`, nunca el desglose |
-| 9 | RF-11 | `GET /api/transportistas/{id}` | autenticado | perfil público + reseñas; sin datos financieros |
-| 9 | RF-07 | `POST /api/ofertas/{id}/aceptar` | Cliente | vía `fn_aceptar_oferta`: crea el `viaje`, copia el desglose a `viaje_costo`, genera los PIN en `viaje_pin`, las demás ofertas pasan a `no_seleccionada`; habilita chat (RI-05) |
 | 10 | RF-21 | `GET /api/viajes/{id}` | Cliente/Transportista del viaje | el Cliente ve los PIN (de `viaje_pin`); el Transportista **nunca** (D-26) |
 | 10 | RN-07 | `POST /api/viajes/{id}/salida` | Transportista | setea `salio_en` |
 | 10 | RF-22 / RN-06 | `POST /api/viajes/{id}/pin-inicio` · `/pin-fin` | Transportista | PIN dictado por el Cliente + lat/lng/precisión; tolerancia 150 m; 5 intentos fallidos abren incidente |

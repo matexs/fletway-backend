@@ -374,7 +374,7 @@ func precioFinal(precioNeto, ivaPct float64) float64 {
 
 ## 6. Qué se guarda en `oferta`/`oferta_costo` y en `viaje`/`viaje_costo`
 
-El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23): **`oferta_costo`** (1 a 1 con `oferta`) y **`viaje_costo`** (1 a 1 con `viaje`). En `oferta` y `viaje` quedan sólo los datos que ve el Cliente: cantidad de viajes, cantidad de ayudantes y precio final. En la tabla de abajo, las filas de distancia a IVA van a `oferta_costo` y `viaje_costo` (las de `oferta` se movieron a `oferta_costo` en `0016`; las de `viaje`, de `0006`, se mueven en el módulo 9 de `docs/PLAN_CONSTRUCCION.md`).
+El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23): **`oferta_costo`** (1 a 1 con `oferta`) y **`viaje_costo`** (1 a 1 con `viaje`). En `oferta` y `viaje` quedan sólo los datos que ve el Cliente: cantidad de viajes, cantidad de ayudantes y precio final. En la tabla de abajo, las filas de distancia a IVA van a `oferta_costo` y `viaje_costo` (las de `oferta` se movieron a `oferta_costo` en `0016` y las de `viaje` a `viaje_costo` en `0018`; en `viaje` quedan `distancia_km_snapshot` y `porcentaje_comision_snapshot`, que no son sensibles y usa el pago).
 
 | Variable del algoritmo | `oferta` | `viaje` (snapshot al aceptar) |
 |---|---|---|
@@ -406,7 +406,7 @@ El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23)
 3. Implementar `duracionOperacion` con la fórmula de §4.3, usando `TiempoPorM3Min` y no `TiempoPorKgMin`.
 4. `calcularCostoOferta` recorre los viajes que devuelve `planificarViajes` (ver `ALGORITMO_VIAJES_EMPAQUETADO.md`). No asumir un solo viaje.
 5. `precioFinal` → `oferta.precio_calculado` es el único monto que ve el Cliente. **No exponer** `costo_operativo`, `precio_neto` ni el desglose en respuestas de API al Cliente, sólo al propio Transportista y al Administrador.
-   A nivel base, el desglose de la oferta vive en `oferta_costo`, que el Cliente no lee (`0016`). **Atención:** `viaje_select` todavía deja leer el snapshot hasta que exista `viaje_costo` (módulo 9). Ver §8.
+   A nivel base, el desglose de la oferta vive en `oferta_costo`, que el Cliente no lee (`0016`). El del viaje vive en `viaje_costo` (`0018`), que tampoco lee. Ver §8.
 6. No calcular, escribir ni exponer ningún monto en el endpoint de creación de `solicitud`. No escribir `cotizacion_estimada_monto`.
 7. Al aceptar la oferta, el `viaje` copia el desglose de la `oferta` (§6). No lo recalcula.
 8. Leer `margenPct` de `config_margen` vigente (D-15). La tabla existe desde `0016`.
@@ -436,7 +436,7 @@ El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23)
 
 **Riesgos de RLS:**
 1. **Integridad de `oferta`:** resuelto en `0016` (D-23): `trg_proteger_campos_oferta` impide a Cliente y Transportista modificar costo, precio y FK, y `trg_exigir_costo_oferta` rechaza una oferta sin desglose, así que sólo el backend crea ofertas.
-2. **Lectura del desglose por el Cliente:** resuelto para la oferta en `0016` (`oferta_costo`, RLS sólo Transportista dueño y Administrador); para el viaje, `viaje_costo` se crea en el módulo 9.
+2. **Lectura del desglose por el Cliente:** resuelto para la oferta en `0016` (`oferta_costo`, RLS sólo Transportista dueño y Administrador); para el viaje, en `0018` (`viaje_costo`, RLS sólo Transportista del viaje y Administrador).
 
 **Decisiones (2026-10-01):**
 - `margen_pct`: parámetro de plataforma (D-15).

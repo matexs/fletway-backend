@@ -22,6 +22,7 @@ este directorio: vive sólo en el historial de Supabase. Acá se versionan los c
 | `0015` | Aplicada 2026-10-03 | Matchmaking: `fn_es_compatible` (D-21), listado de compatibles y aviso in-app idempotente (módulo 7). |
 | `0016` | Aplicada 2026-10-03 | `config_margen` (D-15); desglose de la oferta en `oferta_costo` (D-23); oferta sin edición, con desglose obligatorio y una vigente por vehículo (módulo 8). |
 | `0017` | Aplicada 2026-10-03 | `config_costo_vehiculo`: costos del vehículo de referencia por tipo, definidos por la plataforma (D-34); `vehiculo_costo` → DEPRECATED (módulo 8). |
+| `0018` | Aplicada 2026-10-03 | `viaje_costo` y `viaje_pin` (D-23, D-26); `viaje` sin columnas de costo ni PIN; el viaje sólo nace de `fn_aceptar_oferta` (módulo 9). |
 
 ## Esquema base y entorno local (D-16)
 

@@ -138,7 +138,7 @@ func SubirArchivo(t *testing.T, bucket, path string) {
 
 // borrarUsuario borra el usuario de prueba. Antes suelta las referencias que no
 // borran en cascada (notificaciones recibidas, documentos que revisó, solicitudes
-// publicadas, ofertas).
+// publicadas, ofertas y viajes).
 func borrarUsuario(t *testing.T, id string) {
 	t.Helper()
 	ctx := context.Background()
@@ -149,6 +149,7 @@ func borrarUsuario(t *testing.T, id string) {
 		for _, sql := range []string{
 			`DELETE FROM notificacion WHERE destinatario_usuario_id = $1`,
 			`UPDATE documento_transportista SET revisado_por_admin_id = NULL WHERE revisado_por_admin_id = $1`,
+			`DELETE FROM viaje WHERE cliente_id = $1 OR transportista_id = $1`,
 			`DELETE FROM solicitud WHERE cliente_id = $1`,
 			`DELETE FROM oferta WHERE transportista_id = $1`,
 			`DELETE FROM veto WHERE usuario_id = $1 OR admin_id = $1`,
@@ -170,4 +171,25 @@ func CrearTransportistaHabilitado(t *testing.T) database.Identity {
 	id := CrearUsuario(t, "transportista")
 	Exec(t, `INSERT INTO transportista (usuario_id, estado_habilitacion_codigo) VALUES ($1, 'habilitado')`, id.UserID)
 	return id
+}
+
+// Reputacion fija la calificación promedio y la tasa de cumplimiento de un
+// Transportista. Las calcula la base a partir de reseñas y viajes (módulo 13) y
+// trg_proteger_campos_transportista descarta cualquier otro cambio, así que se
+// escriben con los triggers apagados para esta sesión. calificacion nil = sin
+// reseñas.
+func Reputacion(t *testing.T, transportistaID string, calificacion *float64, tasaCumplimiento float64) {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, URL(t))
+	require.NoError(t, err)
+	defer func() { _ = conn.Close(ctx) }()
+	require.NoError(t, pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE transportista SET calificacion_promedio = $2, tasa_cumplimiento = $3
+			WHERE usuario_id = $1`, transportistaID, calificacion, tasaCumplimiento)
+		return err
+	}))
 }

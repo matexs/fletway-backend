@@ -84,3 +84,51 @@ type OfertaResponse struct {
 	Desglose          DesgloseResponse `json:"desglose"`
 	CreadoEn          time.Time        `json:"creado_en"`
 }
+
+// OfertaParaCliente es una oferta como la ve el Cliente (RF-07): sin desglose
+// ni patente (la patente se ve recién al aceptar).
+type OfertaParaCliente struct {
+	ID                string          `json:"id"`
+	TransportistaID   string          `json:"transportista_id"`
+	Transportista     string          `json:"transportista_nombre"`
+	Calificacion      *float64        `json:"calificacion_promedio"`
+	CantidadResenas   int             `json:"cantidad_resenas"`
+	TasaCumplimiento  float64         `json:"tasa_cumplimiento"`
+	VehiculoTipo      string          `json:"vehiculo_tipo"`
+	CantidadViajes    int             `json:"cantidad_viajes"`
+	CantidadAyudantes int             `json:"cantidad_ayudantes"`
+	PrecioCalculado   decimal.Decimal `json:"precio_calculado"`
+	CreadoEn          time.Time       `json:"creado_en"`
+}
+
+// OfertasDeSolicitudResponse es una página de las ofertas pendientes de una
+// solicitud, ordenadas por score (RN-05). Sin ver_mas trae las 3 primeras.
+type OfertasDeSolicitudResponse struct {
+	// CantidadAyudantesSolicitados es lo que pidió el Cliente (orientativo,
+	// D-20), para compararlo con los ayudantes de cada oferta.
+	CantidadAyudantesSolicitados int                 `json:"cantidad_ayudantes_solicitados"`
+	Total                        int                 `json:"total"`
+	Ofertas                      []OfertaParaCliente `json:"ofertas"`
+	// SiguienteCursor es la posición desde la que sigue "ver más", o null si no
+	// hay más.
+	SiguienteCursor *int `json:"siguiente_cursor"`
+}
+
+// ViajeConfirmadoResponse es el viaje que nace al aceptar una oferta. Recién
+// acá el Cliente ve la patente.
+type ViajeConfirmadoResponse struct {
+	ID                  string          `json:"id"`
+	Estado              string          `json:"estado"`
+	SolicitudID         string          `json:"solicitud_id"`
+	TransportistaID     string          `json:"transportista_id"`
+	TransportistaNombre string          `json:"transportista_nombre"`
+	VehiculoPatente     string          `json:"vehiculo_patente"`
+	VehiculoMarcaModelo *string         `json:"vehiculo_marca_modelo"`
+	MontoTotal          decimal.Decimal `json:"monto_total"`
+	CantidadViajes      int             `json:"cantidad_viajes"`
+	CantidadAyudantes   int             `json:"cantidad_ayudantes"`
+	FechaServicio       string          `json:"fecha_servicio_deseada"`
+	OrigenDireccion     string          `json:"origen_direccion"`
+	DestinoDireccion    string          `json:"destino_direccion"`
+	CreadoEn            time.Time       `json:"creado_en"`
+}
