@@ -6,6 +6,9 @@
 --   columnas de costo y pin_inicio/pin_fin; trigger reescrito; viaje_insert sólo Administrador);
 --   función nueva fn_aceptar_oferta.
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local. dbFletway tenía 0 viajes.
+--
 -- 1. viaje_costo (D-23): el desglose del viaje sale de viaje, que el Cliente lee, a una tabla 1 a 1
 --    que sólo ven el Transportista del viaje y el Administrador. Se mueven las columnas que agregó
 --    0006 salvo las que el Cliente necesita: cantidad_viajes_snapshot, monto_total_snapshot (el
