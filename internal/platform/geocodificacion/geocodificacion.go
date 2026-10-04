@@ -1,7 +1,7 @@
-// Package geocodificacion convierte una dirección escrita a mano en coordenadas
-// (D-20). La interfaz Geocodificador separa el proveedor: en esta etapa no hay
-// API de mapas conectada (D-17), así que en desarrollo se usa una aproximación
-// por zona; el proveedor real (Google Geocoding) se integra más adelante.
+// Package geocodificacion convierte una dirección en coordenadas (D-20) y
+// sugiere direcciones mientras el Cliente escribe. La interfaz Geocodificador
+// separa el proveedor: Geoapify (D-35) con datos reales, o una aproximación por
+// zona para desarrollar sin API key.
 package geocodificacion
 
 import (
@@ -11,6 +11,7 @@ import (
 	"hash/fnv"
 
 	"github.com/matexs/fletway-backend/internal/platform/decimal"
+	"github.com/matexs/fletway-backend/internal/platform/geoapify"
 )
 
 var (
@@ -27,20 +28,38 @@ type Punto struct {
 	Lng decimal.Decimal
 }
 
+// Sugerencia es una dirección propuesta mientras el Cliente escribe.
+type Sugerencia struct {
+	// Direccion es la calle con la altura, lista para guardar en la solicitud.
+	Direccion string `json:"direccion"`
+	// Detalle es la localidad y el código postal, para distinguir sugerencias.
+	Detalle string  `json:"detalle"`
+	Lat     float64 `json:"lat"`
+	Lng     float64 `json:"lng"`
+}
+
 // Geocodificador ubica una dirección dentro de su zona.
 type Geocodificador interface {
 	// Geocodificar devuelve las coordenadas de direccion, que está en la zona
 	// zonaNombre de provincia. Devuelve ErrNoGeocodificable si no la ubica.
 	Geocodificar(ctx context.Context, direccion, zonaNombre, provincia string) (Punto, error)
+	// Sugerir devuelve direcciones de la zona que empiezan como texto, para
+	// autocompletar. Puede devolver una lista vacía.
+	Sugerir(ctx context.Context, texto, zonaNombre, provincia string) ([]Sugerencia, error)
 }
 
-// Nuevo devuelve el Geocodificador del proveedor pedido. En producción sólo se
-// acepta "google" (que todavía no está implementado), para que la aproximación
-// nunca llegue a usuarios reales. Devuelve ErrProveedor en otro caso.
-func Nuevo(proveedor, entorno string) (Geocodificador, error) {
+// Nuevo devuelve el Geocodificador del proveedor pedido. "geoapify" necesita
+// la API key. En producción sólo se acepta "geoapify" (D-35), para que la
+// aproximación nunca llegue a usuarios reales. Devuelve ErrProveedor en otro
+// caso.
+func Nuevo(proveedor, entorno, apiKey string) (Geocodificador, error) {
 	switch {
-	case entorno == "production" && proveedor != "google":
-		return nil, fmt.Errorf("%w: en producción hace falta GEOCODIFICADOR_PROVEEDOR=google", ErrProveedor)
+	case entorno == "production" && proveedor != "geoapify":
+		return nil, fmt.Errorf("%w: en producción hace falta GEOCODIFICADOR_PROVEEDOR=geoapify", ErrProveedor)
+	case proveedor == "geoapify" && apiKey == "":
+		return nil, fmt.Errorf("%w: geoapify necesita GEOAPIFY_API_KEY", ErrProveedor)
+	case proveedor == "geoapify":
+		return Geoapify{Cliente: geoapify.Nuevo(apiKey, "")}, nil
 	case proveedor == "aproximado":
 		return Aproximado{}, nil
 	default:
@@ -49,7 +68,8 @@ func Nuevo(proveedor, entorno string) (Geocodificador, error) {
 }
 
 // centros son coordenadas aproximadas del centro de cada zona piloto (migración
-// 0008), por "nombre|provincia".
+// 0008), por "nombre|provincia". Geoapify las usa para limitar la búsqueda a la
+// zona y Aproximado para inventar un punto cercano.
 var centros = map[string][2]float64{
 	"Ciudad Autónoma de Buenos Aires|CABA": {-34.6037, -58.3816},
 	"Campana|Buenos Aires":                 {-34.1633, -58.9592},
@@ -94,4 +114,16 @@ func (Aproximado) Geocodificar(_ context.Context, direccion, zonaNombre, provinc
 		Lat: decimal.MustParse(fmt.Sprintf("%.6f", c[0]+dy*desplazamientoMax)),
 		Lng: decimal.MustParse(fmt.Sprintf("%.6f", c[1]+dx*desplazamientoMax)),
 	}, nil
+}
+
+// Sugerir implementa Geocodificador: sin datos de mapas, la única sugerencia es
+// lo que escribió el Cliente.
+func (Aproximado) Sugerir(_ context.Context, texto, zonaNombre, _ string) ([]Sugerencia, error) {
+	return []Sugerencia{{Direccion: texto, Detalle: zonaNombre}}, nil
+}
+
+// CentroDeZona devuelve el centro aproximado de una zona piloto, si se conoce.
+func CentroDeZona(zonaNombre, provincia string) (lat, lng float64, ok bool) {
+	c, ok := centros[zonaNombre+"|"+provincia]
+	return c[0], c[1], ok
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/platform/database/dbtest"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/httpx"
+	"github.com/matexs/fletway-backend/internal/platform/ruteo"
 )
 
 // hoy es el "hoy" fijo de los tests: 10 de octubre de 2026, mediodía en Argentina.
@@ -69,7 +70,7 @@ func nuevaAPIConDB(t *testing.T, db *database.DB, ahora time.Time) *api {
 	t.Helper()
 	mux := http.NewServeMux()
 	av := &avisos{}
-	svc := solicitud.NewService(db, geocodificacion.Aproximado{}, av, jobsInmediatos{}).
+	svc := solicitud.NewService(db, geocodificacion.Aproximado{}, ruteo.Aproximado{}, av, jobsInmediatos{}).
 		ConReloj(func() time.Time { return ahora })
 	solicitud.Register(mux, svc)
 	return &api{t: t, db: db, mux: mux, avisos: av}
@@ -368,4 +369,26 @@ func TestSinEdicionEnLaBase(t *testing.T) {
 		require.Error(t, ejecutar(`INSERT INTO solicitud_objeto (solicitud_id, nombre_personalizado, cantidad,
 			peso_unitario_kg, largo_m, ancho_m, alto_m) VALUES ($1, 'Caja', 1, 5, 0.5, 0.5, 0.5)`, s.ID))
 	})
+}
+
+func TestRuta(t *testing.T) {
+	ahora := time.Date(2026, 10, 3, 15, 0, 0, 0, time.UTC)
+	a := nuevaAPI(t, ahora)
+	c := cliente(t)
+	s := a.crear(c, "2026-10-10")
+
+	code, raw := a.llamar(c, "GET", "/solicitudes/"+s.ID+"/ruta", nil)
+	require.Equal(t, http.StatusOK, code, string(raw))
+	var r solicitud.RutaResponse
+	require.NoError(t, json.Unmarshal(raw, &r))
+	assert.Positive(t, r.DistanciaKm)
+	assert.Positive(t, r.DuracionMin)
+	require.Len(t, r.Trazado, 2, "la aproximación es una línea recta")
+	assert.Equal(t, r.Origen, r.Trazado[0])
+	assert.Equal(t, r.Destino, r.Trazado[1])
+
+	otro := cliente(t)
+	code, raw = a.llamar(otro, "GET", "/solicitudes/"+s.ID+"/ruta", nil)
+	require.Equal(t, http.StatusNotFound, code, "otro Cliente no la ve")
+	assert.Equal(t, "solicitud_no_encontrada", errorDe(t, raw).Code)
 }

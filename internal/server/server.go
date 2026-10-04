@@ -89,11 +89,11 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) registerAPI(apiMux *http.ServeMux) {
 	identidad.Register(apiMux, s.db)
 	vehiculo.Register(apiMux, s.db)
-	geografia.Register(apiMux, s.db)
+	geografia.Register(apiMux, s.db, s.geo)
 	catalogo.Register(apiMux, s.db)
 	match := matchmaking.NewService(s.db)
 	matchmaking.Register(apiMux, match)
-	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo, match, s.jobs))
+	solicitud.Register(apiMux, solicitud.NewService(s.db, s.geo, s.ruta, match, s.jobs))
 	oferta.Register(apiMux, oferta.NewService(s.db, s.ruta))
 	perfil.Register(apiMux, s.db)
 	habilitacion.Register(apiMux,

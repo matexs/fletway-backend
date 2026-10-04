@@ -49,6 +49,7 @@
 | D-32 | `tipo_vehiculo` con medidas estándar de referencia | CONFIRMADA (2026-10-01) |
 | D-33 | Cierre de la revisión de documentación del Transportista | CONFIRMADA (2026-10-03) |
 | D-34 | Costos del vehículo de referencia por tipo, definidos por la plataforma | CONFIRMADA (2026-10-03) |
+| D-35 | Mapas, direcciones y ruteo con Geoapify y OpenStreetMap (gratis, sin tarjeta) | CONFIRMADA (2026-10-04) |
 
 ---
 
@@ -314,7 +315,8 @@ Recortes deliberados (no olvidos). Constan también como enmiendas en `docs/TRAZ
   Transportistas).
 - **Un rol por cuenta:** quien quiera ser Cliente y Transportista usa dos cuentas.
 - **Sin APIs de mapas, geocodificación ni ruteo conectadas todavía:** los componentes se construyen
-  detrás de una interfaz y el proveedor (Google) se integra después (D-20, D-24).
+  detrás de una interfaz y el proveedor (Google) se integra después (D-20, D-24). **Reemplazado por
+  D-35:** Geoapify y OpenStreetMap, gratis y sin tarjeta.
 
 ---
 
@@ -635,4 +637,34 @@ suma complejidad y reabre el incentivo.
 útil siguen siendo las del vehículo real (el cálculo de viajes las necesita). `vehiculo_costo` y
 los endpoints `PUT/GET /api/transportista/vehiculos/{id}/costos` se retiran; la tabla queda
 DEPRECATED (vacía en `dbFletway`) hasta el DROP de lo deprecado.
+
+---
+
+## D-35 — Mapas, direcciones y ruteo con Geoapify y OpenStreetMap · CONFIRMADA (2026-10-04)
+
+**Decisión:** el proveedor de direcciones (`Geocodificador`, D-20) y de rutas (`Ruteador`, D-24) es
+**Geoapify**, también en producción; los mapas de la app usan **OpenStreetMap** (`flutter_map`). Para
+navegar, la app del Transportista abre Google Maps con un link estándar (módulo 10), sin API.
+Reemplaza a Google como proveedor previsto en D-17, D-20 y D-24.
+
+**Por qué:** el equipo necesita autocompletado de direcciones, mapa con la ruta, seguimiento del
+viaje y navegación, **sin costo**. Google Maps Platform pide cargar una tarjeta aunque tenga cupo
+gratis; Geoapify (datos de OpenStreetMap) tiene un plan gratis sin tarjeta que cubre autocompletado,
+búsqueda de direcciones y ruteo por calles, y los mapas de OpenStreetMap son libres con atribución.
+
+**Cómo:**
+- **Autocompletado:** `GET /api/direcciones/sugerencias?zona_id=&q=`, limitado a 20 km del centro de
+  la zona. La API key vive sólo en el backend (`GEOAPIFY_API_KEY`).
+- **Coordenadas:** el backend **no confía** en coordenadas que mande la app (un Cliente podría
+  acortar la distancia y bajar el precio): al publicar vuelve a ubicar "dirección, zona, provincia"
+  con Geoapify y rechaza resultados de poca confianza (`direccion_no_ubicable`).
+- **Ruteo:** distancia y tiempo de manejo reales para el precio de la oferta y el trazado para el
+  mapa (`GET /api/solicitudes/{id}/ruta`), con caché en memoria (las solicitudes no se editan).
+- **Proveedores:** `GEOCODIFICADOR_PROVEEDOR` y `RUTEO_PROVEEDOR` aceptan `geoapify` y
+  `aproximado` (desarrollo sin key); con `APP_ENV=production` el backend no arranca si no es
+  `geoapify`.
+
+**Límites:** el plan gratis tiene un cupo diario de pedidos; alcanza para el prototipo (la app pide
+sugerencias recién después de 3 letras y 400 ms sin escribir). Las solicitudes publicadas antes
+conservan sus coordenadas aproximadas.
 

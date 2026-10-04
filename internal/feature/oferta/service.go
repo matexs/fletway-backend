@@ -131,7 +131,7 @@ func (s *Service) calcular(ctx context.Context, id database.Identity, solicitudI
 		return calculo{}, fmt.Errorf("calcular ruta: %w", err)
 	}
 
-	d := cotizar(e.Parametros, e.Costo, plan.Viajes, Ruta(r), e.AccesoOrigen, e.AccesoDestino,
+	d := cotizar(e.Parametros, e.Costo, plan.Viajes, Ruta{DistanciaKm: r.DistanciaKm, DuracionH: r.DuracionH}, e.AccesoOrigen, e.AccesoDestino,
 		req.CantidadAyudantes, 0)
 	return calculo{Viajes: len(plan.Viajes), Desglose: d}, nil
 }

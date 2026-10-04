@@ -343,7 +343,7 @@ func calcularCostoOferta(cl CostoLaboral, op Operacion, viajes []Viaje, ruta Rut
 > **Ambigüedades del borrador, resueltas (D-24, 2026-10-01):**
 > 1. **`costosAdicionales`** se suma **una vez por oferta** (embalaje, grúa). Si más adelante se modelan peajes por viaje, se separan.
 > 2. **Horas de vuelta:** se cobran. `h = DuracionH*2 + operacionH`, coherente con los km de ida y vuelta.
-> 3. **Proveedor de ruteo:** interfaz `Ruteador` (D-24) con los proveedores `google` (Google Distance Matrix, producción, se integra más adelante), `aproximado` (sólo local: línea recta × 1,3 a 30 km/h) y `fijo` (sólo tests). En producción, si la ruta no se obtiene, `calcularRuta()` devuelve `ErrRutaNoDisponible` y la oferta se rechaza con error de validación: **nunca** se estima la distancia "a ojo"; con `APP_ENV=production` y otro proveedor, el backend no arranca.
+> 3. **Proveedor de ruteo:** interfaz `Ruteador` (D-24) con los proveedores `geoapify` (D-35: calles reales, también en producción; reemplaza a `google`), `google` (Google Distance Matrix, producción, se integra más adelante), `aproximado` (sólo local: línea recta × 1,3 a 30 km/h) y `fijo` (sólo tests). En producción, si la ruta no se obtiene, `calcularRuta()` devuelve `ErrRutaNoDisponible` y la oferta se rechaza con error de validación: **nunca** se estima la distancia "a ojo"; con `APP_ENV=production` y otro proveedor, el backend no arranca.
 
 ---
 

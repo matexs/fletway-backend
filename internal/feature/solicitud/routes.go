@@ -18,6 +18,7 @@ import (
 //	POST /solicitudes
 //	GET  /solicitudes
 //	GET  /solicitudes/{id}
+//	GET  /solicitudes/{id}/ruta
 //	POST /solicitudes/{id}/cancelar
 //	POST /solicitudes/{id}/republicar
 func Register(mux *http.ServeMux, svc *Service) {
@@ -25,6 +26,7 @@ func Register(mux *http.ServeMux, svc *Service) {
 	mux.HandleFunc("POST /solicitudes", httpx.Wrap(h.crear))
 	mux.HandleFunc("GET /solicitudes", httpx.Wrap(h.propias))
 	mux.HandleFunc("GET /solicitudes/{id}", httpx.Wrap(h.detalle))
+	mux.HandleFunc("GET /solicitudes/{id}/ruta", httpx.Wrap(h.ruta))
 	mux.HandleFunc("POST /solicitudes/{id}/cancelar", httpx.Wrap(h.cancelar))
 	mux.HandleFunc("POST /solicitudes/{id}/republicar", httpx.Wrap(h.republicar))
 }

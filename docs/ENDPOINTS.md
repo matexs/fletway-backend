@@ -228,6 +228,19 @@ por tipo de vehículo (`config_costo_vehiculo`, D-34).
 `200` con `[{ "id": "uuid", "nombre": "San Isidro", "provincia": "Buenos Aires" }]`, ordenado por
 provincia y nombre.
 
+#### `GET /api/direcciones/sugerencias?zona_id=&q=` (autenticado)
+Autocompletado de direcciones dentro de la zona (D-35): hasta 5 sugerencias a menos de 20 km del
+centro de la zona. `q` entre 3 y 100 caracteres. `200`:
+
+```json
+[{ "direccion": "Avenida Centenario 1200", "detalle": "La Calabria, 1642 San Isidro, Argentina",
+   "lat": -34.4659, "lng": -58.5216 }]
+```
+
+Las coordenadas son orientativas: al publicar, el backend vuelve a ubicar la dirección. Con el
+proveedor `aproximado` la única sugerencia es el texto escrito. Errores: `400 datos_invalidos`,
+`400 zona_invalida`.
+
 #### `GET /api/transportista/zonas` y `PUT /api/transportista/zonas` (Transportista)
 `{"zona_ids": ["uuid", ...]}` en los dos sentidos. El `PUT` reemplaza el conjunto completo (puede
 ser vacío, hasta 50, sin repetidos). Errores: `400 datos_incompletos`, `400 datos_invalidos`,
@@ -328,6 +341,18 @@ oferta. Una solicitud no se edita: se cancela y se publica otra (la base lo impo
 #### `GET /api/solicitudes/{id}`
 `200` con `Solicitud` si quien llama la puede ver (RLS: el Cliente dueño, el Administrador y los
 Transportistas de las zonas de origen o destino). Error: `404 solicitud_no_encontrada`.
+
+#### `GET /api/solicitudes/{id}/ruta`
+Recorrido para el mapa (D-35), visible para quien ve la solicitud: su Cliente y los Transportistas
+que la pueden ofertar. Distancia y tiempo de manejo de ida y hasta 300 puntos del trayecto por
+calles (con `aproximado`, la línea recta). `200`:
+
+```json
+{ "origen": { "lat": -34.4659, "lng": -58.5216 }, "destino": { "lat": -34.6042, "lng": -58.4144 },
+  "distancia_km": 25.1, "duracion_min": 26, "trazado": [{ "lat": -34.4658, "lng": -58.5215 }] }
+```
+
+Errores: `404 solicitud_no_encontrada`, `400 ruta_no_disponible`.
 
 #### `POST /api/solicitudes/{id}/cancelar` (Cliente dueño)
 Sin costo: todavía no hay compromiso. Las ofertas pendientes pasan a `no_seleccionada`. `200` con

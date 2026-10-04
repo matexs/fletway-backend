@@ -11,6 +11,7 @@ import (
 
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
+	"github.com/matexs/fletway-backend/internal/platform/ruteo"
 )
 
 var (
@@ -298,4 +299,22 @@ func (r *repository) republicar(ctx context.Context, id database.Identity, solic
 		return "", fmt.Errorf("republicar solicitud: %w", err)
 	}
 	return nuevoID, nil
+}
+
+// extremos lee las coordenadas de origen y destino de una solicitud visible
+// para la identidad (RLS). Devuelve errNoEncontrada.
+func (r *repository) extremos(ctx context.Context, id database.Identity, solicitudID string) (ruteo.Coordenada, ruteo.Coordenada, error) {
+	var o, d ruteo.Coordenada
+	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `SELECT origen_lat::float8, origen_lng::float8, destino_lat::float8, destino_lng::float8
+			FROM solicitud WHERE id = $1`, solicitudID).Scan(&o.Lat, &o.Lng, &d.Lat, &d.Lng)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errNoEncontrada
+		}
+		return err
+	})
+	if err != nil {
+		return o, d, fmt.Errorf("leer extremos de la solicitud: %w", err)
+	}
+	return o, d, nil
 }

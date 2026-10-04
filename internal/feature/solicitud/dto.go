@@ -280,3 +280,20 @@ type SolicitudResumen struct {
 	CantidadObjetos      int       `json:"cantidad_objetos"`
 	CreadoEn             time.Time `json:"creado_en"`
 }
+
+// PuntoMapa son coordenadas para el mapa, en grados.
+type PuntoMapa struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+// RutaResponse es el recorrido de una solicitud para dibujarlo (D-35):
+// extremos, distancia y tiempo de manejo de ida, y los puntos del trayecto por
+// calles.
+type RutaResponse struct {
+	Origen      PuntoMapa   `json:"origen"`
+	Destino     PuntoMapa   `json:"destino"`
+	DistanciaKm float64     `json:"distancia_km"`
+	DuracionMin int         `json:"duracion_min"`
+	Trazado     []PuntoMapa `json:"trazado"`
+}

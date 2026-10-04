@@ -119,3 +119,20 @@ func (h *handler) republicar(w http.ResponseWriter, r *http.Request) error {
 	httpx.JSON(w, http.StatusCreated, out)
 	return nil
 }
+
+func (h *handler) ruta(w http.ResponseWriter, r *http.Request) error {
+	id, err := identidad(r)
+	if err != nil {
+		return err
+	}
+	sid, err := solicitudID(r)
+	if err != nil {
+		return err
+	}
+	out, err := h.svc.Ruta(r.Context(), id, sid)
+	if err != nil {
+		return err
+	}
+	httpx.JSON(w, http.StatusOK, out)
+	return nil
+}

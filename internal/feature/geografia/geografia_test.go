@@ -16,6 +16,7 @@ import (
 	"github.com/matexs/fletway-backend/internal/platform/auth"
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/database/dbtest"
+	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/httpx"
 )
 
@@ -29,7 +30,7 @@ func nuevaAPI(t *testing.T) *api {
 	t.Helper()
 	db := dbtest.Abrir(t)
 	mux := http.NewServeMux()
-	geografia.Register(mux, db)
+	geografia.Register(mux, db, geocodificacion.Aproximado{})
 	return &api{t: t, db: db, mux: mux}
 }
 
@@ -136,4 +137,41 @@ func TestOtroNoTocaMisZonas(t *testing.T) {
 		return err
 	})
 	require.Error(t, err, "no agrega zonas a otro Transportista")
+}
+
+func TestSugerencias(t *testing.T) {
+	a := nuevaAPI(t)
+	c := dbtest.CrearUsuario(t, "cliente")
+	var zona string
+	for _, z := range a.zonas() {
+		if z.Nombre == "Tigre" {
+			zona = z.ID
+		}
+	}
+	require.NotEmpty(t, zona)
+
+	code, raw := a.llamar(c, "GET", "/direcciones/sugerencias?zona_id="+zona+"&q=Cazon%201000", nil)
+	require.Equal(t, http.StatusOK, code, string(raw))
+	var sug []geocodificacion.Sugerencia
+	require.NoError(t, json.Unmarshal(raw, &sug))
+	require.Len(t, sug, 1, "sin proveedor de mapas sugiere lo escrito")
+	assert.Equal(t, "Cazon 1000", sug[0].Direccion)
+	assert.Equal(t, "Tigre", sug[0].Detalle)
+
+	casos := []struct {
+		name  string
+		query string
+		code  string
+	}{
+		{"texto corto", "zona_id=" + zona + "&q=ab", "datos_invalidos"},
+		{"zona mal formada", "zona_id=x&q=Cazon", "datos_invalidos"},
+		{"zona inexistente", "zona_id=00000000-0000-0000-0000-000000000000&q=Cazon", "zona_invalida"},
+	}
+	for _, tc := range casos {
+		t.Run(tc.name, func(t *testing.T) {
+			code, raw := a.llamar(c, "GET", "/direcciones/sugerencias?"+tc.query, nil)
+			require.Equal(t, http.StatusBadRequest, code)
+			assert.Equal(t, tc.code, codigo(t, raw))
+		})
+	}
 }

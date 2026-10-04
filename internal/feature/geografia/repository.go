@@ -98,3 +98,23 @@ func exigirTransportista(ctx context.Context, tx pgx.Tx) error {
 	}
 	return nil
 }
+
+type zonaInfo struct {
+	nombre, provincia string
+}
+
+// zona lee nombre y provincia de una zona. Devuelve errZonaInexistente.
+func (r *repository) zona(ctx context.Context, id database.Identity, zonaID string) (zonaInfo, error) {
+	var z zonaInfo
+	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `SELECT nombre, provincia FROM zona WHERE id = $1`, zonaID).Scan(&z.nombre, &z.provincia)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errZonaInexistente
+		}
+		return err
+	})
+	if err != nil {
+		return zonaInfo{}, fmt.Errorf("leer zona: %w", err)
+	}
+	return z, nil
+}

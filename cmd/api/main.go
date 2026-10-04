@@ -63,13 +63,13 @@ func run() error {
 	}
 
 	// Coordenadas de las direcciones de las solicitudes (D-20).
-	geo, err := geocodificacion.Nuevo(cfg.GeocodificadorProveedor, cfg.Env)
+	geo, err := geocodificacion.Nuevo(cfg.GeocodificadorProveedor, cfg.Env, cfg.GeoapifyAPIKey)
 	if err != nil {
 		return err
 	}
 
 	// Distancia y duración del trayecto de cada oferta (D-24).
-	ruta, err := ruteo.Nuevo(cfg.RuteoProveedor, cfg.Env)
+	ruta, err := ruteo.Nuevo(cfg.RuteoProveedor, cfg.Env, cfg.GeoapifyAPIKey)
 	if err != nil {
 		return err
 	}

@@ -20,11 +20,14 @@ type Config struct {
 	Async    AsyncConfig
 	Log      LogConfig
 	// GeocodificadorProveedor elige cómo se obtienen las coordenadas de una
-	// dirección (D-20): "aproximado" (sólo desarrollo) o "google".
+	// dirección (D-20): "aproximado" (sólo desarrollo) o "geoapify" (D-35).
 	GeocodificadorProveedor string
 	// RuteoProveedor elige cómo se calcula el trayecto de una oferta (D-24):
-	// "aproximado" (sólo desarrollo) o "google".
+	// "aproximado" (sólo desarrollo) o "geoapify" (D-35).
 	RuteoProveedor string
+	// GeoapifyAPIKey es la key de Geoapify (D-35), que usan el geocodificador y
+	// el ruteador con proveedor "geoapify". No se loguea.
+	GeoapifyAPIKey string
 }
 
 type HTTPConfig struct {
@@ -100,6 +103,7 @@ func Load() (Config, error) {
 		},
 		GeocodificadorProveedor: getenv("GEOCODIFICADOR_PROVEEDOR", "aproximado"),
 		RuteoProveedor:          getenv("RUTEO_PROVEEDOR", "aproximado"),
+		GeoapifyAPIKey:          os.Getenv("GEOAPIFY_API_KEY"),
 	}
 
 	if base := strings.TrimRight(cfg.Supabase.URL, "/"); base != "" {

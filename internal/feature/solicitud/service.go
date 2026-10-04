@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/matexs/fletway-backend/internal/platform/async"
 	"github.com/matexs/fletway-backend/internal/platform/database"
 	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/httpx"
+	"github.com/matexs/fletway-backend/internal/platform/ruteo"
 )
 
 // horaArgentina es la zona horaria del negocio (UTC-3, sin horario de verano):
@@ -27,6 +29,8 @@ var (
 		"no pudimos ubicar la dirección en la zona elegida")
 	errNoCancelableAPI = httpx.Conflict("solicitud_no_cancelable", "sólo se cancela una solicitud publicada")
 	errNoVencidaAPI    = httpx.Conflict("solicitud_no_vencida", "sólo se republica una solicitud vencida")
+	errRutaAPI         = httpx.BadRequest("ruta_no_disponible",
+		"no pudimos calcular el recorrido; probá de nuevo más tarde")
 )
 
 // Avisador avisa a los Transportistas compatibles que hay una solicitud nueva
@@ -41,16 +45,49 @@ type Avisador interface {
 type Service struct {
 	repo  *repository
 	geo   geocodificacion.Geocodificador
+	ruta  ruteo.Ruteador
 	aviso Avisador
 	jobs  async.Enqueuer
 	ahora func() time.Time
 }
 
-// NewService crea el Service. geo ubica las direcciones (D-20); aviso y jobs
-// mandan en segundo plano el aviso a los Transportistas compatibles al publicar
-// (RN-05, RNF-02).
-func NewService(db *database.DB, geo geocodificacion.Geocodificador, aviso Avisador, jobs async.Enqueuer) *Service {
-	return &Service{repo: &repository{db: db}, geo: geo, aviso: aviso, jobs: jobs, ahora: time.Now}
+// NewService crea el Service. geo ubica las direcciones (D-20); ruta calcula el
+// recorrido para el mapa (D-35); aviso y jobs mandan en segundo plano el aviso a
+// los Transportistas compatibles al publicar (RN-05, RNF-02).
+func NewService(db *database.DB, geo geocodificacion.Geocodificador, ruta ruteo.Ruteador, aviso Avisador, jobs async.Enqueuer) *Service {
+	return &Service{repo: &repository{db: db}, geo: geo, ruta: ruta, aviso: aviso, jobs: jobs, ahora: time.Now}
+}
+
+// Ruta devuelve el recorrido origen → destino de una solicitud visible para la
+// identidad (su Cliente o un Transportista que la puede ofertar), para
+// dibujarlo en el mapa (D-35). Devuelve solicitud_no_encontrada o
+// ruta_no_disponible.
+func (s *Service) Ruta(ctx context.Context, id database.Identity, solicitudID string) (RutaResponse, error) {
+	origen, destino, err := s.repo.extremos(ctx, id, solicitudID)
+	if errors.Is(err, errNoEncontrada) {
+		return RutaResponse{}, errSolicitudNoEncontrada
+	}
+	if err != nil {
+		return RutaResponse{}, err
+	}
+	r, err := s.ruta.Calcular(ctx, origen, destino)
+	if errors.Is(err, ruteo.ErrRutaNoDisponible) {
+		return RutaResponse{}, errRutaAPI
+	}
+	if err != nil {
+		return RutaResponse{}, fmt.Errorf("calcular ruta: %w", err)
+	}
+	out := RutaResponse{
+		Origen:      PuntoMapa{Lat: origen.Lat, Lng: origen.Lng},
+		Destino:     PuntoMapa{Lat: destino.Lat, Lng: destino.Lng},
+		DistanciaKm: math.Round(r.DistanciaKm*10) / 10,
+		DuracionMin: int(math.Round(r.DuracionH * 60)),
+		Trazado:     make([]PuntoMapa, 0, len(r.Trazado)),
+	}
+	for _, p := range r.Trazado {
+		out.Trazado = append(out.Trazado, PuntoMapa{Lat: p.Lat, Lng: p.Lng})
+	}
+	return out, nil
 }
 
 // avisar encola el aviso a los Transportistas compatibles. Si falla, se

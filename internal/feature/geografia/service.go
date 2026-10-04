@@ -3,8 +3,10 @@ package geografia
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/matexs/fletway-backend/internal/platform/database"
+	"github.com/matexs/fletway-backend/internal/platform/geocodificacion"
 	"github.com/matexs/fletway-backend/internal/platform/httpx"
 )
 
@@ -14,14 +16,33 @@ var (
 	errZonaInvalida = httpx.BadRequest("zona_invalida", "alguna de las zonas no existe")
 )
 
-// Service lee el catálogo de zonas y guarda las del Transportista (RN-04).
+// Service lee el catálogo de zonas, guarda las del Transportista (RN-04) y
+// sugiere direcciones (D-35).
 type Service struct {
 	repo *repository
+	geo  geocodificacion.Geocodificador
 }
 
-// NewService crea el Service sobre la base dada.
-func NewService(db *database.DB) *Service {
-	return &Service{repo: &repository{db: db}}
+// NewService crea el Service sobre la base dada; geo sugiere direcciones.
+func NewService(db *database.DB, geo geocodificacion.Geocodificador) *Service {
+	return &Service{repo: &repository{db: db}, geo: geo}
+}
+
+// Sugerencias propone direcciones de la zona que empiezan como texto, para el
+// autocompletado al publicar (D-35). Devuelve zona_invalida.
+func (s *Service) Sugerencias(ctx context.Context, id database.Identity, zonaID, texto string) ([]geocodificacion.Sugerencia, error) {
+	z, err := s.repo.zona(ctx, id, zonaID)
+	if errors.Is(err, errZonaInexistente) {
+		return nil, errZonaInvalida
+	}
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.geo.Sugerir(ctx, texto, z.nombre, z.provincia)
+	if err != nil {
+		return nil, fmt.Errorf("sugerir direcciones: %w", err)
+	}
+	return out, nil
 }
 
 // Zonas lista el catálogo, ordenado por provincia y nombre.
