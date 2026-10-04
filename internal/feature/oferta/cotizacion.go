@@ -42,7 +42,9 @@ type Parametros struct {
 	IvaPct      float64 // config_impuesto
 }
 
-// VehiculoCosto es la fila de vehiculo_costo (privada del Transportista).
+// VehiculoCosto son los costos de referencia del tipo de vehículo
+// (config_costo_vehiculo vigente, D-34): los define la plataforma, no el
+// Transportista.
 type VehiculoCosto struct {
 	CombustiblePrecioL   float64
 	RendimientoKmL       float64

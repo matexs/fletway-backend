@@ -66,7 +66,8 @@ declararlo en `docs/TRAZABILIDAD.md`.
 | **RN-08** | Catálogo de **objetos comunes** (`objeto`) con peso/volumen estimados, seleccionables al publicar la solicitud (RF-06) y usados en la cotización (RN-01, RN-02). También se admite carga manual con dimensiones propias. | `solicitud_objeto` soporta `objeto_id` (catálogo) **o** `nombre_personalizado`; en ambos casos guarda peso + largo/ancho/alto + flags de rotación/apilado. |
 
 > **Schema de cotización (aplicado el 2026-09-24, `migrations/0001`–`0007`):** dimensiones en
-> `objeto`/`solicitud_objeto`/`vehiculo`, `vehiculo_costo` (privada), `config_costo_laboral`,
+> `objeto`/`solicitud_objeto`/`vehiculo`, `vehiculo_costo` (privada; DEPRECATED desde `0017`: los costos del
+> vehículo son de referencia por tipo en `config_costo_vehiculo`, D-34), `config_costo_laboral`,
 > `config_operacion`, `config_impuesto`, desglose de costo en `oferta` y sus `*_snapshot` en `viaje`.
 > Columnas y tablas deprecadas, riesgos de RLS y decisiones abiertas: `docs/ALGORITMO_COTIZACION.md` §8.
 

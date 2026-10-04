@@ -18,7 +18,7 @@
 La ERS (RN-01) describe el cálculo aplicado a dos cosas: a una "cotización estimada" al publicar la Solicitud y al "precio específico" de cada Oferta. **La cotización estimada previa se descarta.** El Cliente no ve ningún monto al publicar la Solicitud. El primer precio que ve de cada Transportista es el precio real y final de esa Oferta.
 
 - `solicitud` **no** expone ningún precio al Cliente. Si se agrega algún chequeo interno por `tipo_vehiculo` (factibilidad, matchmaking), sólo puede usar cotas de peso y volumen (`ALGORITMO_VIAJES_EMPAQUETADO.md` §7) y **nunca se convierte en un monto visible**.
-- El único cálculo de precio del sistema ocurre **cuando un Transportista se postula** (RF-17). Usa su `vehiculo` real (con `vehiculo_costo` (nuevo)) y la `oferta.cantidad_ayudantes` que elige.
+- El único cálculo de precio del sistema ocurre **cuando un Transportista se postula** (RF-17). Usa su `vehiculo` real (medidas y carga útil), los costos de referencia de su tipo (`config_costo_vehiculo`, D-34) y la `oferta.cantidad_ayudantes` que elige.
 - Cada Oferta puede tener un precio distinto: vehículo (consumo, capacidad, depreciación, seguro), cantidad de ayudantes y cantidad de viajes necesarios.
 
 > **Atención:** `solicitud.cotizacion_estimada_monto` sigue existiendo (nullable), marcada **DEPRECATED** (0003). Se elimina en una migración posterior. El backend **no la escribe**.
@@ -83,7 +83,7 @@ El cálculo corre **una sola vez por Oferta creada**. El resultado se guarda en 
 | `solicitud_objeto` | `cantidad`, `peso_unitario_kg`, `largo_m` (nuevo), `ancho_m` (nuevo), `alto_m` (nuevo) | Existe (`volumen_unitario_m3` queda DEPRECATED) |
 | `oferta` (en construcción) | `vehiculo_id`, `cantidad_ayudantes` | Existen |
 | `vehiculo` | `peso_maximo_kg` (**es carga útil**), `largo_util_m` (nuevo), `ancho_util_m` (nuevo), `alto_util_m` (nuevo) | Existe (`volumen_carga_m3` queda DEPRECATED) |
-| `vehiculo_costo` (nuevo) (1:1, privada) | ver §4.2 | Existe |
+| `config_costo_vehiculo` (vigente, por `vehiculo.tipo_vehiculo_id`) | ver §4.2 | Existe desde `0017` (D-34). `vehiculo_costo` queda DEPRECATED |
 | Resultado de `planificarViajes()` | cantidad de viajes y carga de cada uno | → `oferta.cantidad_viajes` (existente) |
 | `config_costo_laboral` (nuevo) (vigente) | ver §4.1 | Existe (1 fila seed ilustrativa) |
 | `config_operacion` (nuevo) (vigente) | ver §4.3 | Existe (1 fila seed ilustrativa) |
@@ -146,7 +146,7 @@ type Vehiculo struct {
 }
 // VolumenUtilM3() = LargoUtilM * AnchoUtilM * AltoUtilM
 
-type VehiculoCosto struct { // vehiculo_costo (nuevo) (1:1, privada)
+type VehiculoCosto struct { // config_costo_vehiculo vigente del tipo del vehículo (D-34)
     CombustiblePrecioL   float64 // combustible_precio_l
     RendimientoKmL       float64 // rendimiento_km_l      (CHECK > 0)
     CantidadNeumaticos   int     // cantidad_neumaticos
@@ -230,7 +230,7 @@ Valores semilla **ilustrativos**, tomados del borrador (en la seed de `0004`): c
 >
 > **Cambio respecto del borrador:** `AguinaldoPct = 13.0/12.0 − 1.0` se reemplaza por `aguinaldoFactor = 13/12`. Es la misma matemática y no se parametriza.
 
-### 4.2 Costo del vehículo — lee `vehiculo_costo` (nuevo)
+### 4.2 Costo del vehículo — lee `config_costo_vehiculo` vigente del tipo (D-34)
 
 ```go
 func costoPorHoraVehiculo(v VehiculoCosto, horasMensuales float64) float64 {
@@ -247,15 +247,13 @@ func costoPorKmVehiculo(v VehiculoCosto) float64 {
 }
 ```
 
-Estos campos son **de cada vehículo**, no de la config global. Por eso dos ofertas para la misma Solicitud pueden tener precios distintos.
+Estos campos son **de referencia por tipo de vehículo** (D-34): los define la plataforma en `config_costo_vehiculo`, no el Transportista, para que no pueda inflarlos y subir su precio. Dos ofertas con el mismo tipo de vehículo sólo difieren por la cantidad de viajes y de ayudantes; con tipos distintos, también por estos costos.
 
-> **Por qué es una tabla aparte:** `vehiculo_select` es `USING (true)` (lectura pública). Si estos campos fueran columnas de `vehiculo`, cualquier usuario vería el valor de compra y el seguro de cada Transportista. Por eso viven en **`vehiculo_costo` (nuevo)** (1:1, PK = `vehiculo_id`), con policies de select/insert/update sólo para el dueño y el Administrador. Decisión confirmada el 2026-09-24.
->
-> Consecuencia: **sólo la sesión del Transportista dueño puede calcular** con estos datos. Por eso el desglose se guarda en `oferta` (§6).
+> **Historia:** hasta D-34 estos campos eran de cada vehículo, en `vehiculo_costo` (1:1, privada, cargada por el Transportista). Esa tabla queda DEPRECATED (`0017`).
 >
 > Los divisores (`rendimiento_km_l`, `vida_neumatico_km`, `vida_util_km`) tienen `CHECK > 0` en la base, así que no hay división por cero.
 >
-> **Observación (no resuelta):** `combustible_precio_l` es por vehículo, como dice el borrador. Eso permite diferenciar diésel, nafta y GNC, pero obliga al Transportista a actualizar el precio de mercado a mano.
+> El precio del combustible se actualiza en un solo lugar (una fila por tipo), sin depender de cada Transportista. No se distingue diésel, nafta o GNC dentro de un mismo tipo.
 
 ### 4.3 Duración de la operación (carga y descarga) — lee `config_operacion` (nuevo) vigente
 
@@ -404,7 +402,7 @@ El desglose de costos vive en tablas aparte, que el Cliente no puede leer (D-23)
 ## 7. Checklist de implementación
 
 1. Leer `config_costo_laboral` (nuevo), `config_operacion` (nuevo), `config_comision` y `config_impuesto` (nuevo) **vigentes** (`vigente_hasta IS NULL`) una vez por cálculo. No hardcodear constantes. Los porcentajes llegan en 0–100.
-2. `costoPorHoraVehiculo` y `costoPorKmVehiculo` leen `vehiculo_costo` (nuevo) del `oferta.vehiculo_id`. Si el vehículo **no tiene fila** en `vehiculo_costo`, devolver un error de validación. Nunca calcular con ceros.
+2. `costoPorHoraVehiculo` y `costoPorKmVehiculo` leen `config_costo_vehiculo` vigente del tipo del `oferta.vehiculo_id` (D-34). Si el tipo **no tiene fila** vigente, es un error de configuración de la plataforma (500), no del usuario. Nunca calcular con ceros.
 3. Implementar `duracionOperacion` con la fórmula de §4.3, usando `TiempoPorM3Min` y no `TiempoPorKgMin`.
 4. `calcularCostoOferta` recorre los viajes que devuelve `planificarViajes` (ver `ALGORITMO_VIAJES_EMPAQUETADO.md`). No asumir un solo viaje.
 5. `precioFinal` → `oferta.precio_calculado` es el único monto que ve el Cliente. **No exponer** `costo_operativo`, `precio_neto` ni el desglose en respuestas de API al Cliente, sólo al propio Transportista y al Administrador.

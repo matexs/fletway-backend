@@ -117,10 +117,7 @@ type VehiculoResponse struct {
 	AltoUtilM          decimal.Decimal `json:"alto_util_m"`
 	PesoMaximoKg       decimal.Decimal `json:"peso_maximo_kg"`
 	Activo             bool            `json:"activo"`
-	// TieneCostos indica si ya cargó vehiculo_costo; sin costos no puede ofertar
-	// con este vehículo (RN-01).
-	TieneCostos bool      `json:"tiene_costos"`
-	CreadoEn    time.Time `json:"creado_en"`
+	CreadoEn           time.Time       `json:"creado_en"`
 }
 
 // ActivoRequest activa o desactiva un vehículo.
@@ -134,51 +131,4 @@ func (r *ActivoRequest) Validate() error {
 		return httpx.BadRequest("datos_incompletos", "falta activo")
 	}
 	return nil
-}
-
-// CostosRequest son los costos operativos del vehículo (vehiculo_costo), que
-// usa el cálculo del precio de cada oferta (RN-01, docs/ALGORITMO_COTIZACION.md
-// §4.2). Sólo los ven el Transportista dueño y el Administrador.
-type CostosRequest struct {
-	CombustiblePrecioL   decimal.Decimal `json:"combustible_precio_l"`
-	RendimientoKmL       decimal.Decimal `json:"rendimiento_km_l"`
-	CantidadNeumaticos   int             `json:"cantidad_neumaticos"`
-	CostoNeumatico       decimal.Decimal `json:"costo_neumatico"`
-	VidaNeumaticoKm      decimal.Decimal `json:"vida_neumatico_km"`
-	CostoMantenimientoKm decimal.Decimal `json:"costo_mantenimiento_km"`
-	ValorCompra          decimal.Decimal `json:"valor_compra"`
-	ValorResidual        decimal.Decimal `json:"valor_residual"`
-	VidaUtilKm           decimal.Decimal `json:"vida_util_km"`
-	SeguroMensual        decimal.Decimal `json:"seguro_mensual"`
-	PatenteMensual       decimal.Decimal `json:"patente_mensual"`
-}
-
-// Validate controla rangos, decimales y que el valor residual no supere al de
-// compra (los mismos CHECK de la tabla, para responder 400 con el campo).
-// Devuelve un *httpx.APIError datos_invalidos.
-func (r *CostosRequest) Validate() error {
-	e := errores{}
-	e.rango("combustible_precio_l", r.CombustiblePrecioL, false, "0", "99999999.99", 2)
-	e.rango("rendimiento_km_l", r.RendimientoKmL, true, "0", "9999.99", 2)
-	if r.CantidadNeumaticos < 1 || r.CantidadNeumaticos > 30 {
-		e["cantidad_neumaticos"] = "entre 1 y 30"
-	}
-	e.rango("costo_neumatico", r.CostoNeumatico, false, "0", "9999999999.99", 2)
-	e.rango("vida_neumatico_km", r.VidaNeumaticoKm, true, "0", "9999999999", 0)
-	e.rango("costo_mantenimiento_km", r.CostoMantenimientoKm, false, "0", "99999999.99", 2)
-	e.rango("valor_compra", r.ValorCompra, false, "0", "999999999999.99", 2)
-	e.rango("valor_residual", r.ValorResidual, false, "0", "999999999999.99", 2)
-	e.rango("vida_util_km", r.VidaUtilKm, true, "0", "9999999999", 0)
-	e.rango("seguro_mensual", r.SeguroMensual, false, "0", "9999999999.99", 2)
-	e.rango("patente_mensual", r.PatenteMensual, false, "0", "9999999999.99", 2)
-	if _, ok := e["valor_residual"]; !ok && r.ValorResidual.Cmp(r.ValorCompra) > 0 {
-		e["valor_residual"] = "no puede superar el valor de compra"
-	}
-	return e.error()
-}
-
-// CostosResponse son los costos cargados del vehículo.
-type CostosResponse struct {
-	CostosRequest
-	ActualizadoEn time.Time `json:"actualizado_en"`
 }

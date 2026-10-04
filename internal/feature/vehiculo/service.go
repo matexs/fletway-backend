@@ -15,10 +15,9 @@ var (
 	errNoEncontrado = httpx.NotFound("vehiculo_no_encontrado", "no existe el vehículo o no es tuyo")
 	errDuplicada    = httpx.Conflict("patente_duplicada", "ya hay un vehículo registrado con esa patente")
 	errTipo         = httpx.BadRequest("tipo_vehiculo_invalido", "el tipo de vehículo no existe")
-	errCostos       = httpx.NotFound("costos_no_cargados", "el vehículo todavía no tiene costos cargados")
 )
 
-// Service administra los vehículos del Transportista y sus costos (RF-18, RN-01).
+// Service administra los vehículos del Transportista (RF-18).
 type Service struct {
 	repo *repository
 }
@@ -33,8 +32,7 @@ func (s *Service) Tipos(ctx context.Context, id database.Identity) ([]TipoVehicu
 	return s.repo.tipos(ctx, id)
 }
 
-// Crear registra un vehículo del Transportista, activo y sin costos (se cargan en
-// un segundo paso). Devuelve no_es_transportista, tipo_vehiculo_invalido o
+// Crear registra un vehículo del Transportista, activo. Devuelve no_es_transportista, tipo_vehiculo_invalido o
 // patente_duplicada. Escribe en la base.
 func (s *Service) Crear(ctx context.Context, id database.Identity, in CrearVehiculoRequest) (VehiculoResponse, error) {
 	if err := s.exigirTransportista(ctx, id); err != nil {
@@ -68,29 +66,6 @@ func (s *Service) CambiarActivo(ctx context.Context, id database.Identity, vehic
 		return VehiculoResponse{}, errNoEncontrado
 	}
 	return v, err
-}
-
-// GuardarCostos crea o reemplaza los costos de un vehículo propio (RN-01).
-// Devuelve vehiculo_no_encontrado. Escribe en la base.
-func (s *Service) GuardarCostos(ctx context.Context, id database.Identity, vehiculoID string, c CostosRequest) (CostosResponse, error) {
-	out, err := s.repo.guardarCostos(ctx, id, vehiculoID, c)
-	if errors.Is(err, errVehiculoNoEncontrado) {
-		return CostosResponse{}, errNoEncontrado
-	}
-	return out, err
-}
-
-// Costos lee los costos de un vehículo propio. Devuelve vehiculo_no_encontrado o
-// costos_no_cargados.
-func (s *Service) Costos(ctx context.Context, id database.Identity, vehiculoID string) (CostosResponse, error) {
-	out, err := s.repo.costos(ctx, id, vehiculoID)
-	switch {
-	case errors.Is(err, errVehiculoNoEncontrado):
-		return CostosResponse{}, errNoEncontrado
-	case errors.Is(err, errSinCostos):
-		return CostosResponse{}, errCostos
-	}
-	return out, err
 }
 
 func (s *Service) exigirTransportista(ctx context.Context, id database.Identity) error {

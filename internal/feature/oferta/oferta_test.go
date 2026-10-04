@@ -60,7 +60,7 @@ func cliente(t *testing.T) database.Identity {
 	return id
 }
 
-// solicitud publica (como superusuario) una solicitud San Isidro → CABA para
+// solicitud publica (como superusuario) una solicitud Tigre → San Fernando para
 // pasado mañana, con una heladera (70 kg, 0,7 × 0,7 × 1,8 m, viaja parada).
 func (e *escenario) solicitud(c database.Identity) string {
 	e.t.Helper()
@@ -68,41 +68,34 @@ func (e *escenario) solicitud(c database.Identity) string {
 	id := e.valor(`
 		INSERT INTO solicitud (cliente_id, origen_zona_id, destino_zona_id, origen_direccion, destino_direccion,
 		    origen_lat, origen_lng, destino_lat, destino_lng, fecha_servicio_deseada, pisos_destino)
-		VALUES ($1, $2, $3, 'Av. Centenario 1200', 'Corrientes 3500', -34.47, -58.52, -34.60, -58.38, $4::date, 2)
-		RETURNING id::text`, c.UserID, e.zona("San Isidro"), e.zona("Ciudad Autónoma de Buenos Aires"), fecha)
+		VALUES ($1, $2, $3, 'Av. Cazón 1000', 'Constitución 900', -34.43, -58.58, -34.44, -58.56, $4::date, 2)
+		RETURNING id::text`, c.UserID, e.zona("Tigre"), e.zona("San Fernando"), fecha)
 	dbtest.Exec(e.t, `INSERT INTO solicitud_objeto (solicitud_id, objeto_id, cantidad, peso_unitario_kg, largo_m, ancho_m, alto_m)
 		SELECT $1, id, 1, 0, 1, 1, 1 FROM objeto WHERE nombre = 'Heladera'`, id)
 	return id
 }
 
-// vehiculo da de alta un vehículo del Transportista con las medidas útiles
-// pedidas y, si conCostos, sus costos.
-func (e *escenario) vehiculo(tr database.Identity, largo, ancho, alto string, activo, conCostos bool) string {
+// vehiculo da de alta un Furgón chico del Transportista con las medidas útiles
+// pedidas. Los costos salen de config_costo_vehiculo por tipo (D-34).
+func (e *escenario) vehiculo(tr database.Identity, largo, ancho, alto string, activo bool) string {
 	e.t.Helper()
 	// Única en la tabla, que comparten todos los tests y los datos de prueba manual.
 	patente := "OF" + rand.Text()[:8]
-	id := e.valor(`INSERT INTO vehiculo (transportista_id, tipo_vehiculo_id, patente, largo_util_m, ancho_util_m,
+	return e.valor(`INSERT INTO vehiculo (transportista_id, tipo_vehiculo_id, patente, largo_util_m, ancho_util_m,
 		alto_util_m, peso_maximo_kg, activo)
 		SELECT $1, id, $2, $3::numeric, $4::numeric, $5::numeric, 1500, $6 FROM tipo_vehiculo WHERE nombre = 'Furgón chico'
 		RETURNING id::text`, tr.UserID, patente, largo, ancho, alto, activo)
-	if conCostos {
-		dbtest.Exec(e.t, `INSERT INTO vehiculo_costo (vehiculo_id, combustible_precio_l, rendimiento_km_l,
-			cantidad_neumaticos, costo_neumatico, vida_neumatico_km, costo_mantenimiento_km, valor_compra,
-			valor_residual, vida_util_km, seguro_mensual, patente_mensual)
-			VALUES ($1, 1000, 10, 6, 200000, 60000, 50, 30000000, 6000000, 600000, 192000, 38400)`, id)
-	}
-	return id
 }
 
-// transportista crea un Transportista habilitado con zona San Isidro y un
+// transportista crea un Transportista habilitado con zona Tigre y un
 // vehículo grande con costos, compatible con la solicitud. Devuelve su
 // identidad y el vehículo.
 func (e *escenario) transportista() (database.Identity, string) {
 	e.t.Helper()
 	tr := dbtest.CrearTransportistaHabilitado(e.t)
 	dbtest.Exec(e.t, `INSERT INTO transportista_zona (transportista_id, zona_id) VALUES ($1, $2)`,
-		tr.UserID, e.zona("San Isidro"))
-	return tr, e.vehiculo(tr, "3", "1.7", "1.9", true, true)
+		tr.UserID, e.zona("Tigre"))
+	return tr, e.vehiculo(tr, "3", "1.7", "1.9", true)
 }
 
 func (e *escenario) llamar(id database.Identity, metodo, path string, body any) *httptest.ResponseRecorder {
@@ -161,7 +154,7 @@ func TestOfertar(t *testing.T) {
 	assert.Equal(t, 1, of.CantidadAyudantes)
 	assert.Equal(t, 0, cot.PrecioCalculado.Cmp(of.PrecioCalculado), "mismo precio que la cotización")
 	assert.Equal(t, cot.Desglose.CostoOperativo.String(), of.Desglose.CostoOperativo.String())
-	assert.Equal(t, "San Isidro", of.OrigenZona)
+	assert.Equal(t, "Tigre", of.OrigenZona)
 
 	// Más ayudantes encarecen la hora pero acortan la operación: el precio cambia.
 	w = e.llamar(tr, "POST", "/solicitudes/"+sid+"/ofertas/cotizar", pedido(vid, 0))
@@ -200,14 +193,13 @@ func TestOfertarErrores(t *testing.T) {
 
 	ajeno, vidAjeno := e.transportista()
 	_ = ajeno
-	inactivo := e.vehiculo(tr, "3", "1.7", "1.9", false, true)
-	sinCostos := e.vehiculo(tr, "3", "1.7", "1.9", true, false)
-	bajo := e.vehiculo(tr, "2", "1.2", "1.2", true, true) // la heladera entraría acostada, pero viaja parada
+	inactivo := e.vehiculo(tr, "3", "1.7", "1.9", false)
+	bajo := e.vehiculo(tr, "2", "1.2", "1.2", true) // la heladera entraría acostada, pero viaja parada
 
 	otraZona := dbtest.CrearTransportistaHabilitado(t)
 	dbtest.Exec(t, `INSERT INTO transportista_zona (transportista_id, zona_id) VALUES ($1, $2)`,
-		otraZona.UserID, e.zona("Pilar"))
-	vidOtraZona := e.vehiculo(otraZona, "3", "1.7", "1.9", true, true)
+		otraZona.UserID, e.zona("Escobar"))
+	vidOtraZona := e.vehiculo(otraZona, "3", "1.7", "1.9", true)
 
 	noDisponible, vidNoDisponible := e.transportista()
 	dbtest.Exec(t, `UPDATE transportista SET disponible = false WHERE usuario_id = $1`, noDisponible.UserID)
@@ -231,7 +223,6 @@ func TestOfertarErrores(t *testing.T) {
 		{"vehículo mal formado", tr, sid, pedido("x", 0), 400, "datos_invalidos"},
 		{"vehículo de otro Transportista", tr, sid, pedido(vidAjeno, 0), 404, "vehiculo_no_encontrado"},
 		{"vehículo inactivo", tr, sid, pedido(inactivo, 0), 409, "vehiculo_inactivo"},
-		{"vehículo sin costos", tr, sid, pedido(sinCostos, 0), 409, "costos_no_cargados"},
 		{"la carga no entra", tr, sid, pedido(bajo, 0), 400, "carga_no_factible"},
 		{"solicitud fuera de sus zonas", otraZona, sid, pedido(vidOtraZona, 0), 404, "solicitud_no_disponible"},
 		{"solicitud inexistente", tr, "00000000-0000-0000-0000-000000000000", pedido(vid, 0), 404, "solicitud_no_disponible"},
@@ -349,14 +340,14 @@ func TestProteccionOferta(t *testing.T) {
 
 	t.Run("no se crea una oferta sin desglose", func(t *testing.T) {
 		// Lo que haría un Transportista por PostgREST: un INSERT suelto con su precio.
-		otroVehiculo := e.vehiculo(tr, "3", "1.7", "1.9", true, true)
+		otroVehiculo := e.vehiculo(tr, "3", "1.7", "1.9", true)
 		err := e.como(tr, `INSERT INTO oferta (solicitud_id, transportista_id, vehiculo_id, cantidad_viajes,
 			cantidad_ayudantes, precio_calculado) VALUES ($1, (select auth.uid()), $2, 1, 0, 1)`, sid, otroVehiculo)
 		assert.ErrorContains(t, err, "falta el desglose")
 	})
 
 	t.Run("no se oferta con el vehículo de otro", func(t *testing.T) {
-		ajeno := e.vehiculo(otro, "3", "1.7", "1.9", true, true)
+		ajeno := e.vehiculo(otro, "3", "1.7", "1.9", true)
 		err := e.como(tr, `INSERT INTO oferta (solicitud_id, transportista_id, vehiculo_id, cantidad_viajes,
 			cantidad_ayudantes, precio_calculado) VALUES ($1, (select auth.uid()), $2, 1, 0, 1)`, sid, ajeno)
 		assert.ErrorContains(t, err, "el vehículo no es del Transportista")
@@ -370,4 +361,26 @@ func TestProteccionOferta(t *testing.T) {
 			WHERE solicitud_id = $1 AND estado_codigo = 'pendiente'`, sid))
 		assert.Equal(t, "no_seleccionada", e.valor(`SELECT estado_codigo FROM oferta WHERE id = $1`, of.ID))
 	})
+}
+
+// TestCostosDeReferencia comprueba D-34: cada tipo de vehículo tiene sus costos
+// vigentes y sólo el Administrador los cambia.
+func TestCostosDeReferencia(t *testing.T) {
+	e := nuevo(t, rutaFija)
+	tr, _ := e.transportista()
+
+	assert.Equal(t, e.valor(`SELECT count(*)::text FROM tipo_vehiculo`),
+		e.valor(`SELECT count(*)::text FROM config_costo_vehiculo WHERE vigente_hasta IS NULL`),
+		"un costo vigente por tipo")
+	assert.Equal(t, 6, e.contar(tr, `SELECT count(*)::int FROM config_costo_vehiculo WHERE vigente_hasta IS NULL`),
+		"el Transportista los lee para calcular")
+
+	antes := e.valor(`SELECT string_agg(seguro_mensual::text, ',' ORDER BY id) FROM config_costo_vehiculo`)
+	require.NoError(t, e.como(tr, `UPDATE config_costo_vehiculo SET seguro_mensual = 1`))
+	assert.Error(t, e.como(tr, `INSERT INTO config_costo_vehiculo (tipo_vehiculo_id, combustible_precio_l,
+		rendimiento_km_l, cantidad_neumaticos, costo_neumatico, vida_neumatico_km, costo_mantenimiento_km,
+		valor_compra, valor_residual, vida_util_km, seguro_mensual, patente_mensual)
+		SELECT id, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 FROM tipo_vehiculo LIMIT 1`))
+	assert.Equal(t, antes, e.valor(`SELECT string_agg(seguro_mensual::text, ',' ORDER BY id) FROM config_costo_vehiculo`),
+		"el Transportista no modifica los costos de referencia")
 }

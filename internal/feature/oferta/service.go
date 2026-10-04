@@ -32,9 +32,7 @@ var (
 		"la solicitud no existe o ya no está disponible para ofertar")
 	errVehiculoAPI         = httpx.NotFound("vehiculo_no_encontrado", "no existe el vehículo o no es tuyo")
 	errVehiculoInactivoAPI = httpx.Conflict("vehiculo_inactivo", "el vehículo está inactivo")
-	errSinCostosAPI        = httpx.Conflict("costos_no_cargados",
-		"cargá los costos del vehículo antes de ofertar con él")
-	errDuplicadaAPI = httpx.Conflict("oferta_duplicada",
+	errDuplicadaAPI        = httpx.Conflict("oferta_duplicada",
 		"ya tenés una oferta vigente con ese vehículo para esta solicitud")
 	errRutaAPI = httpx.BadRequest("ruta_no_disponible",
 		"no pudimos calcular el recorrido; probá de nuevo más tarde")
@@ -97,8 +95,6 @@ func (s *Service) calcular(ctx context.Context, id database.Identity, solicitudI
 		return calculo{}, errVehiculoAPI
 	case errors.Is(err, errVehiculoInactivo):
 		return calculo{}, errVehiculoInactivoAPI
-	case errors.Is(err, errSinCostos):
-		return calculo{}, errSinCostosAPI
 	case errors.Is(err, errSolicitudInexistente):
 		return calculo{}, errSolicitudNoDisponible
 	case err != nil:
@@ -157,7 +153,7 @@ func (s *Service) Cotizar(ctx context.Context, id database.Identity, solicitudID
 // Crear calcula y guarda la oferta del Transportista para la solicitud (RF-17).
 // Devuelve no_es_transportista, transportista_no_habilitado,
 // transportista_no_disponible, solicitud_no_disponible, vehiculo_no_encontrado,
-// vehiculo_inactivo, costos_no_cargados, carga_no_factible (con los motivos),
+// vehiculo_inactivo, carga_no_factible (con los motivos),
 // calculo_demorado, ruta_no_disponible u oferta_duplicada. Escribe oferta y
 // oferta_costo.
 func (s *Service) Crear(ctx context.Context, id database.Identity, solicitudID string, req OfertaRequest) (OfertaResponse, error) {

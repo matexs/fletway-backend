@@ -174,7 +174,7 @@ Notifica al Transportista (`documentacion_revisada`, en segundo plano) cuando un
 | 404 | `documento_no_encontrado` | el id no existe o está mal formado |
 | 409 | `documento_ya_revisado` | el documento ya no está pendiente |
 
-### Vehículos y costos (RF-18, RN-01, D-32)
+### Vehículos (RF-18, D-32, D-34)
 
 Errores de validación de forma: `400 datos_invalidos` con `details` = `{ "<campo>": "<problema>" }`
 (todos los campos con problema a la vez). Montos y medidas son números JSON con hasta 2 decimales
@@ -205,7 +205,7 @@ La patente se normaliza (mayúsculas, sin espacios ni guiones) y tiene que ser `
 { "id": "uuid", "tipo_vehiculo_id": "uuid", "tipo_vehiculo_nombre": "Furgón chico",
   "patente": "AB123CD", "marca": "Renault", "modelo": "Kangoo",
   "largo_util_m": 2.4, "ancho_util_m": 1.45, "alto_util_m": 1.15, "peso_maximo_kg": 650,
-  "activo": true, "tiene_costos": false, "creado_en": "2026-10-03T12:00:00Z" }
+  "activo": true, "creado_en": "2026-10-03T12:00:00Z" }
 ```
 
 Errores: `400 datos_invalidos`, `400 tipo_vehiculo_invalido`, `403 no_es_transportista`,
@@ -219,22 +219,8 @@ Request `{"activo": false}`. `200` con `Vehiculo`. Un vehículo inactivo no cuen
 matchmaking ni para ofertar (D-21). Errores: `400 datos_incompletos`, `404 vehiculo_no_encontrado`
 (no existe o no es propio).
 
-#### `PUT /api/transportista/vehiculos/{id}/costos` y `GET` (Transportista dueño)
-Segundo paso del alta: los costos operativos que usa el precio de cada oferta (RN-01,
-`ALGORITMO_COTIZACION.md` §4.2). El `PUT` crea o reemplaza. Sólo los leen el dueño y el
-Administrador. Request y respuesta (la respuesta suma `actualizado_en`):
-
-```json
-{ "combustible_precio_l": 1350.5, "rendimiento_km_l": 9.5, "cantidad_neumaticos": 4,
-  "costo_neumatico": 185000, "vida_neumatico_km": 50000, "costo_mantenimiento_km": 45.75,
-  "valor_compra": 28000000, "valor_residual": 9000000, "vida_util_km": 400000,
-  "seguro_mensual": 95000, "patente_mensual": 38000 }
-```
-
-Reglas: montos `>= 0` con hasta 2 decimales; `rendimiento_km_l > 0`; `cantidad_neumaticos` de 1
-a 30; `vida_neumatico_km` y `vida_util_km` enteros `> 0`; `valor_residual <= valor_compra`.
-Errores: `400 datos_invalidos`, `404 vehiculo_no_encontrado`, `404 costos_no_cargados` (sólo el
-`GET`).
+Los costos del vehículo que entran en el precio no los carga el Transportista: son de referencia
+por tipo de vehículo (`config_costo_vehiculo`, D-34).
 
 ### Zonas y disponibilidad (RN-04, D-21)
 
@@ -401,7 +387,7 @@ viajes que tendría la oferta, para decidir antes de ofertar. `200`:
 #### `POST /api/solicitudes/{id}/ofertas` (Transportista habilitado)
 Request: `{ "vehiculo_id": "uuid", "cantidad_ayudantes": 1 }` (0 a 3, D-23). La solicitud tiene que
 estar entre las compatibles del Transportista (`GET /api/transportista/solicitudes`); el vehículo,
-activo y con costos cargados. `201` con `Oferta`:
+activo. `201` con `Oferta`:
 
 ```json
 { "id": "uuid", "estado": "pendiente", "solicitud_id": "uuid", "solicitud_estado": "publicada",
@@ -424,7 +410,7 @@ Errores (también de cotizar, salvo el último):
 | 404 | `solicitud_no_disponible` | no existe, ya no está publicada o no es compatible con el Transportista |
 | 404 | `vehiculo_no_encontrado` | no existe o es de otro Transportista |
 | 409 | `transportista_no_disponible` | tiene la disponibilidad apagada |
-| 409 | `vehiculo_inactivo` · `costos_no_cargados` | |
+| 409 | `vehiculo_inactivo` | |
 | 409 | `oferta_duplicada` | ya tiene una oferta vigente con ese vehículo para la solicitud |
 
 #### `POST /api/ofertas/{id}/retirar` (Transportista dueño)

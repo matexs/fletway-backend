@@ -19,7 +19,6 @@ var (
 	errDuplicada            = errors.New("oferta: ya hay una vigente con ese vehículo")
 	errVehiculoNoEncontrado = errors.New("oferta: vehículo no encontrado")
 	errVehiculoInactivo     = errors.New("oferta: vehículo inactivo")
-	errSinCostos            = errors.New("oferta: vehículo sin costos cargados")
 	errSolicitudInexistente = errors.New("oferta: solicitud no visible")
 )
 
@@ -74,9 +73,9 @@ type entrada struct {
 	Carga           []Item
 }
 
-// entrada lee la configuración vigente, el vehículo con sus costos y la
-// solicitud con sus objetos. Devuelve errVehiculoNoEncontrado,
-// errVehiculoInactivo, errSinCostos o errSolicitudInexistente.
+// entrada lee la configuración vigente, el vehículo con los costos de su tipo y
+// la solicitud con sus objetos. Devuelve errVehiculoNoEncontrado,
+// errVehiculoInactivo o errSolicitudInexistente.
 func (r *repository) entrada(ctx context.Context, id database.Identity, solicitudID, vehiculoID string) (entrada, error) {
 	var e entrada
 	err := r.db.WithinTx(ctx, id, func(tx pgx.Tx) error {
@@ -164,26 +163,19 @@ func leerParametros(ctx context.Context, tx pgx.Tx, p *Parametros) error {
 	return nil
 }
 
+// leerVehiculo lee las medidas del vehículo propio y los costos de referencia de
+// su tipo (config_costo_vehiculo vigente, D-34). Si falta la fila del tipo es
+// un error de configuración de la plataforma, no del usuario.
 func leerVehiculo(ctx context.Context, tx pgx.Tx, vehiculoID string, e *entrada) error {
-	var activo, conCostos bool
+	var activo bool
 	v := &e.Vehiculo
 	c := &e.Costo
 	err := tx.QueryRow(ctx, `
 		SELECT v.patente, v.peso_maximo_kg::float8, v.largo_util_m::float8, v.ancho_util_m::float8,
-		       v.alto_util_m::float8, v.activo, c.vehiculo_id IS NOT NULL,
-		       COALESCE(c.combustible_precio_l, 0)::float8, COALESCE(c.rendimiento_km_l, 1)::float8,
-		       COALESCE(c.cantidad_neumaticos, 0), COALESCE(c.costo_neumatico, 0)::float8,
-		       COALESCE(c.vida_neumatico_km, 1)::float8, COALESCE(c.costo_mantenimiento_km, 0)::float8,
-		       COALESCE(c.valor_compra, 0)::float8, COALESCE(c.valor_residual, 0)::float8,
-		       COALESCE(c.vida_util_km, 1)::float8, COALESCE(c.seguro_mensual, 0)::float8,
-		       COALESCE(c.patente_mensual, 0)::float8
+		       v.alto_util_m::float8, v.activo
 		FROM vehiculo v
-		LEFT JOIN vehiculo_costo c ON c.vehiculo_id = v.id
 		WHERE v.id = $1 AND v.transportista_id = (select auth.uid())`, vehiculoID,
-	).Scan(&v.Patente, &v.PesoUtilKg, &v.LargoUtilM, &v.AnchoUtilM, &v.AltoUtilM, &activo, &conCostos,
-		&c.CombustiblePrecioL, &c.RendimientoKmL, &c.CantidadNeumaticos, &c.CostoNeumatico,
-		&c.VidaNeumaticoKm, &c.CostoMantenimientoKm, &c.ValorCompra, &c.ValorResidual,
-		&c.VidaUtilKm, &c.SeguroMensual, &c.PatenteMensual)
+	).Scan(&v.Patente, &v.PesoUtilKg, &v.LargoUtilM, &v.AnchoUtilM, &v.AltoUtilM, &activo)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return errVehiculoNoEncontrado
@@ -191,9 +183,20 @@ func leerVehiculo(ctx context.Context, tx pgx.Tx, vehiculoID string, e *entrada)
 		return err
 	case !activo:
 		return errVehiculoInactivo
-	case !conCostos:
-		// Nunca se calcula con costos en cero (ALGORITMO_COTIZACION.md §7).
-		return errSinCostos
+	}
+	err = tx.QueryRow(ctx, `
+		SELECT c.combustible_precio_l::float8, c.rendimiento_km_l::float8, c.cantidad_neumaticos,
+		       c.costo_neumatico::float8, c.vida_neumatico_km::float8, c.costo_mantenimiento_km::float8,
+		       c.valor_compra::float8, c.valor_residual::float8, c.vida_util_km::float8,
+		       c.seguro_mensual::float8, c.patente_mensual::float8
+		FROM vehiculo v
+		JOIN config_costo_vehiculo c ON c.tipo_vehiculo_id = v.tipo_vehiculo_id AND c.vigente_hasta IS NULL
+		WHERE v.id = $1`, vehiculoID,
+	).Scan(&c.CombustiblePrecioL, &c.RendimientoKmL, &c.CantidadNeumaticos, &c.CostoNeumatico,
+		&c.VidaNeumaticoKm, &c.CostoMantenimientoKm, &c.ValorCompra, &c.ValorResidual,
+		&c.VidaUtilKm, &c.SeguroMensual, &c.PatenteMensual)
+	if err != nil {
+		return fmt.Errorf("config_costo_vehiculo vigente del tipo: %w", err)
 	}
 	return nil
 }
