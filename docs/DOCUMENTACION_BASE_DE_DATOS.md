@@ -1,6 +1,6 @@
 # Fletway — Documentación de la base de datos
 
-Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 42 tablas
+Proyecto Supabase: `dbFletway` (`gfadryudaaqyxnkrpbex`) · Postgres 17 · 44 tablas
 Este documento describe el esquema **tal como está desplegado hoy** (verificado contra el catálogo de Postgres, no contra los scripts originales) y explica por qué existe cada pieza en términos del negocio.
 
 **Última actualización:** 2026-10-02, con las seeds del módulo 0 (`0008`–`0009`) y la identidad del módulo 2 (`0010`–`0011`). El esquema refleja las migraciones `migrations/0001`–`0007` del 2026-09-24 (rediseño de cotización y cálculo de viajes); historial en §8. Diseño de los algoritmos que usan estas tablas: `docs/ALGORITMO_COTIZACION.md` y `docs/ALGORITMO_VIAJES_EMPAQUETADO.md`.
@@ -27,7 +27,7 @@ El Cliente elige una oferta → se confirma un `viaje` → se ejecuta con verifi
 
 **Tablas de referencia en vez de enums.** Todo valor categórico que podría crecer o necesitar metadata (`estado_viaje`, `tipo_incidente`, etc.) es una tabla `codigo/descripcion`, no un `enum` de Postgres — más fácil de extender sin migraciones.
 
-**RLS activo en las 42 tablas**, con Supabase Auth nativo: `auth.uid()` = `usuario.id`. Sección 5 tiene el detalle completo.
+**RLS activo en las 44 tablas**, con Supabase Auth nativo: `auth.uid()` = `usuario.id`. Sección 5 tiene el detalle completo.
 
 ---
 
@@ -137,14 +137,18 @@ erDiagram
 |---|---|
 | `estado_viaje` | Catálogo: `confirmado` / `en_curso` / `finalizado` / `cancelado_cliente` / `cancelado_transportista`. |
 | `viaje` | Ver detalle abajo. |
+| `viaje_costo` | Desglose del precio del viaje (1 a 1, D-23), copiado de `oferta_costo` al aceptar. Sólo lo leen el Transportista del viaje y el Administrador; nadie lo escribe directo. |
+| `viaje_pin` | PIN de inicio y de fin (4 dígitos, distintos) y sus intentos (D-26). Sólo lo leen el Cliente del viaje y el Administrador: el Transportista nunca ve el PIN. Lo llena `fn_aceptar_oferta`; lo valida `fn_validar_pin` (módulo 10). |
 | `viaje_ubicacion` | Serie temporal de posiciones GPS durante el viaje (RI-04, RF-15) — separada de las coordenadas fijas de origen/destino porque el Transportista se mueve *durante* el viaje, no solo al inicio/fin. Solo el propio Transportista puede insertar sus pings. |
 
 `viaje` tiene tres grupos de columnas:
-1. **Operativas**: `estado_codigo`, `pin_inicio`/`pin_fin` (+ timestamps de validación), `cantidad_ayudantes`, `finalizado_en`.
+1. **Operativas**: `estado_codigo`, `pin_inicio_validado_en`/`pin_fin_validado_en` (los PIN viven en `viaje_pin`, `0018`), `finalizado_en`.
 2. **Snapshot de ubicación e identidad**: direcciones y coordenadas exactas de origen/destino *al momento de confirmar*, `distancia_km_snapshot`, `transportista_nombre_snapshot`, `vehiculo_patente_snapshot`, `vehiculo_marca_modelo_snapshot`.
-3. **Snapshot financiero** (copia del desglose de la `oferta` aceptada): `cantidad_viajes_snapshot`, `duracion_ruta_h_snapshot`, `duracion_operacion_h_snapshot`, `costo_laboral_snapshot`, `costo_vehiculo_snapshot`, `costos_adicionales_snapshot`, `costo_operativo_snapshot`, `margen_pct_snapshot`, `precio_neto_snapshot`, `iva_pct_snapshot`, `porcentaje_comision_snapshot` y `monto_total_snapshot` (= precio final). Así un cambio futuro en `vehiculo_costo` o en las tablas `config_*` nunca altera un viaje ya confirmado. *Deprecadas* (modelo de tarifa plana, nullable, no se escriben): `tarifa_base_snapshot`, `valor_por_km_snapshot`, `valor_por_m3_snapshot`, `valor_por_hora_snapshot`, `recargo_escalera_snapshot`, `recargo_ayudante_snapshot`.
+3. **Snapshot de lo que ve el Cliente**: `cantidad_viajes_snapshot`, `cantidad_ayudantes`, `monto_total_snapshot` (= precio final) y `porcentaje_comision_snapshot` (lo usa el pago, RN-03). El resto del desglose (duraciones, costos, margen, precio neto e IVA) vive en `viaje_costo` desde `0018`. Así un cambio futuro en las tablas `config_*` nunca altera un viaje ya confirmado. *Deprecadas* (modelo de tarifa plana, nullable, no se escriben): `tarifa_base_snapshot`, `valor_por_km_snapshot`, `valor_por_m3_snapshot`, `valor_por_hora_snapshot`, `recargo_escalera_snapshot`, `recargo_ayudante_snapshot`.
 
-Un trigger (`trg_proteger_campos_viaje` → `fn_proteger_campos_viaje()`) impide que Cliente o Transportista alteren por UPDATE las FK estructurales (`oferta_id`, `solicitud_id`, `cliente_id`, `transportista_id`), **todo el snapshot financiero** (incluidas las deprecadas) y `distancia_km_snapshot`. Sólo pueden mover estado, PIN y campos operativos. Los snapshots de dirección, coordenadas e identidad **no** están cubiertos por el trigger.
+Un trigger (`trg_proteger_campos_viaje` → `fn_proteger_campos_viaje()`, reescrito en `0018`) impide que Cliente o Transportista alteren por UPDATE las FK estructurales, todos los snapshots (financieros, de ubicación e identidad, incluidas las deprecadas), `cantidad_ayudantes` y `creado_en`. Sólo pueden mover estado y campos operativos.
+
+**El viaje sólo nace de la aceptación (`0018`):** `viaje_insert` queda sólo para el Administrador. **`fn_aceptar_oferta(oferta)`** (`SECURITY DEFINER`, D-23) verifica que quien llama sea el Cliente de la solicitud, que la oferta esté pendiente, la solicitud publicada y no vencida y el Transportista habilitado y sin veto; en una transacción crea el viaje con sus snapshots, copia `oferta_costo` a `viaje_costo`, genera los dos PIN con el generador criptográfico de pgcrypto, acepta la oferta, pasa las demás pendientes a `no_seleccionada` y la solicitud a `asignada`. Sus errores llevan SQLSTATE propios (`FW001` oferta no pendiente, `FW002` solicitud no asignable, `FW003` Transportista inhabilitado).
 
 ### Dominio 6 — Pagos
 *Comisión de plataforma (RN-03) y parámetros versionados del precio (RN-01).*
@@ -208,7 +212,9 @@ Todas las tablas tienen RLS activo. Filosofía general: **lectura pública** en 
 | `solicitud_objeto` | hereda visibilidad de `solicitud` | hereda visibilidad de `solicitud` | todo |
 | `oferta` | ve las de sus solicitudes (precio, viajes y ayudantes); al cancelar su solicitud, las pendientes pasan a `no_seleccionada` | crea (sólo vía backend, con su desglose) / ve / retira las propias (requiere estar habilitado) | todo |
 | `oferta_costo` | — | ve el desglose de las propias | ve |
-| `viaje` | ve/actualiza el propio | ve/actualiza el propio | todo (campos snapshot protegidos por trigger) |
+| `viaje` | ve/actualiza el propio; lo crea sólo con `fn_aceptar_oferta` | ve/actualiza el propio | todo (campos snapshot protegidos por trigger) |
+| `viaje_costo` | — | ve el de sus viajes | ve |
+| `viaje_pin` | ve los PIN de sus viajes | — (nunca) | ve |
 | `viaje_ubicacion` | ve el de sus viajes | inserta solo en sus propios viajes | todo |
 | `config_costo_laboral` / `config_operacion` / `config_impuesto` / `config_comision` / `config_margen` | lectura | lectura (la necesita para calcular el precio de su oferta) | ABM completo |
 | `config_tarifa` (deprecada) | — | — | exclusivo |
@@ -224,7 +230,9 @@ Todas las políticas usan `(select auth.uid())` (no `auth.uid()` directo) para q
 
 **Riesgos conocidos, sin resolver:**
 - `vehiculo_select` es `USING (true)`: cualquier usuario autenticado lee la **patente** de cualquier vehículo. El plan pide mostrarla recién después de aceptar la oferta (módulo 9); hoy sólo lo respeta la API.
-- `viaje_select` le deja al Cliente leer **todas** las columnas, incluido el desglose de costo. Se resuelve en el módulo 9 con `viaje_costo` (D-23), igual que `oferta_costo`.
+- `usuario_select` deja leer a **cualquier** usuario autenticado todas las columnas de los usuarios con rol `transportista`, incluidos email y teléfono. La API sólo expone el nombre (perfil, RF-11), pero por PostgREST se leen los datos de contacto. Pendiente de decidir (anotado en el módulo 9).
+
+**Resuelto en la migración `0018` (2026-10-03):** el desglose del viaje pasó a `viaje_costo` y los PIN a `viaje_pin`, que el Transportista no lee; `viaje_insert` ya no deja al Cliente crear un viaje por PostgREST.
 
 **Resuelto en la migración `0016` (2026-10-03):**
 - El desglose de la oferta pasó a `oferta_costo`, que el Cliente no puede leer.
@@ -257,6 +265,7 @@ Las tablas catálogo (`estado_*`, `tipo_*`, `tipo_vehiculo`) ya tienen filas sem
 | 2026-08-22/23 | `01_identidad` … `09d_indices_fk_faltantes` (13) | Esquema inicial: 8 dominios, RLS, fixes de advisors e índices de FK. |
 | 2026-09-24 | `0001`–`0007` (archivos en `migrations/`) | Rediseño de cotización (RN-01) y cálculo de viajes (RN-02): dimensiones y restricciones en `objeto`/`solicitud_objeto`/`vehiculo`; tabla `vehiculo_costo`; acceso por origen/destino en `solicitud`; tablas `config_costo_laboral`, `config_operacion` y `config_impuesto`; desglose de costo en `oferta` y sus snapshots en `viaje` (trigger reescrito); lectura de `config_comision` para autenticados. Se deprecan (sin DROP) `config_tarifa`, los snapshots de tarifa plana, `cotizacion_estimada_monto`, `requiere_escalera`/`pisos_escalera` y los volúmenes derivables. 35 → 39 tablas. |
 | 2026-10-02 | `0008`–`0009` | Datos del módulo 0: 14 zonas piloto y catálogo de 28 objetos con medidas; `objeto.largo_m`, `ancho_m` y `alto_m` pasan a `NOT NULL`. |
+| 2026-10-03 | `0018` | Módulo 9: `viaje_costo` y `viaje_pin` (D-23, D-26); se van de `viaje` 9 columnas de costo y `pin_inicio`/`pin_fin`; trigger de `viaje` reescrito; `viaje_insert` sólo Administrador; `fn_aceptar_oferta`. 42 → 44 tablas. |
 | 2026-10-03 | `0017` | Módulo 8: `config_costo_vehiculo`, costos del vehículo de referencia por tipo definidos por la plataforma (D-34), con valores de trabajo para los 6 tipos; `vehiculo_costo` → DEPRECATED. 41 → 42 tablas. |
 | 2026-10-03 | `0016` | Módulo 8: `config_margen` (D-15, seed 0 %); `oferta_costo` con el desglose que sale de `oferta` (D-23); protección de alta y edición de la oferta y desglose obligatorio; una oferta vigente por vehículo. 39 → 41 tablas. |
 | 2026-10-03 | `0015` | Módulo 7: funciones de compatibilidad (D-21), listado y aviso in-app de solicitudes compatibles; índice único de avisos. |
