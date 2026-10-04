@@ -4,6 +4,9 @@
 -- Afecta: config_costo_vehiculo (tabla nueva, 4 policies, seed de 6 filas); vehiculo_costo (sólo
 --   COMMENT de deprecación).
 --
+-- APLICADA el 2026-10-03 vía apply_migration (confirmación humana explícita), después de
+-- probarla en Supabase local. vehiculo_costo estaba vacía en dbFletway.
+--
 -- D-34: los costos del vehículo que entran en el precio (combustible, neumáticos, mantenimiento,
 -- depreciación, seguro y patente) los define la plataforma por tipo de vehículo, no cada
 -- Transportista. Si los cargara el Transportista, podría inflarlos para subir su precio; con un
